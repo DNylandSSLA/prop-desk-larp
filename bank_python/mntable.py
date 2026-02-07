@@ -84,7 +84,7 @@ class Table:
         """
         self._schema = schema
         self._name = name or f"tbl_{next(_counter)}"
-        self._conn = sqlite3.connect(":memory:")
+        self._conn = sqlite3.connect(":memory:", check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
 
         col_defs = []
@@ -260,7 +260,7 @@ class Table:
         """Pickle support: rebuild table from saved state."""
         self._schema = state["schema"]
         self._name = state["name"]
-        self._conn = sqlite3.connect(":memory:")
+        self._conn = sqlite3.connect(":memory:", check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
 
         col_defs = []

@@ -23,6 +23,15 @@ from .dagger import (
     CycleError,
 )
 from .walpole import JobRunner, JobConfig, JobMode, JobStatus
+from .market_data import (
+    Equity,
+    FXRate,
+    MarketDataManager,
+    MarketDataSnapshot,
+    MarketDataFetcher,
+    HistoricalStore,
+    MarketDataCache,
+)
 
 __all__ = [
     "Table", "LazyView",
@@ -30,4 +39,6 @@ __all__ = [
     "Instrument", "MarketData", "Bond", "CreditDefaultSwap", "Option",
     "Position", "Book", "DependencyGraph", "CycleError",
     "JobRunner", "JobConfig", "JobMode", "JobStatus",
+    "Equity", "FXRate", "MarketDataManager", "MarketDataSnapshot",
+    "MarketDataFetcher", "HistoricalStore", "MarketDataCache",
 ]

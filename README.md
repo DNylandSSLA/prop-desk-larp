@@ -4,7 +4,7 @@ A simplified implementation of the four core components found inside investment 
 
 This is a learning/fun project — not production banking software. The goal is to capture the interesting architectural ideas (data-first, reactive computation, centralised store) using normal Python conventions.
 
-**Pure Python, no external dependencies** — just `sqlite3`, `pickle`, `zlib`, `threading`, and standard library modules.
+One optional dependency: `yfinance` for live market data. Core components work without it.
 
 ## Components
 
@@ -67,7 +67,7 @@ graph.recalculate(sofr)
 print(bond.value)  # updated price
 ```
 
-Built-in instrument types: `Bond`, `CreditDefaultSwap`, `Option`. Plus `Position` and `Book` for portfolio management.
+Built-in instrument types: `Bond`, `CreditDefaultSwap`, `Option`, `Equity`, `FXRate`. Plus `Position` and `Book` for portfolio management.
 
 ### Walpole (`bank_python/walpole.py`)
 
@@ -99,6 +99,47 @@ runner.stop()
 
 Job modes: one-shot (`RUN_ONCE`), `PERIODIC`, and `SERVICE` (restart on crash).
 
+### Market Data (`bank_python/market_data.py`)
+
+Live market data integration via yfinance. Fetches real equity prices, FX rates, and historical OHLCV data from Yahoo Finance. SOFR and credit spreads remain simulated (not available on Yahoo Finance).
+
+```python
+from bank_python import (
+    MarketData, DependencyGraph, BarbaraDB,
+    Equity, FXRate, MarketDataManager,
+)
+
+db = BarbaraDB.open("desk;default")
+graph = DependencyGraph()
+
+# MarketData nodes start at 0 — manager fills them with live prices
+aapl_spot = MarketData("AAPL_SPOT", price=0.0)
+eq = Equity("AAPL", spot_source=aapl_spot)
+graph.register(eq)
+
+# Manager handles fetching, caching, and graph recalculation
+mgr = MarketDataManager(graph, db)
+mgr.register_ticker("AAPL", aapl_spot)
+mgr.update_all()  # fetches live price, updates graph
+
+print(eq.value)  # real AAPL price
+
+# Historical OHLCV data stored in MnTable
+mgr.load_history("AAPL", period="1mo")
+for row in mgr.history.query("AAPL"):
+    print(row)
+```
+
+Components: `MarketDataFetcher` (yfinance wrapper with retries), `MarketDataCache` (Barbara-backed TTL cache), `HistoricalStore` (MnTable for OHLCV), `Equity` and `FXRate` instrument types.
+
+## Setup
+
+```bash
+pip install yfinance
+# or
+uv pip install yfinance
+```
+
 ## Running
 
 ```bash
@@ -109,7 +150,7 @@ python demo.py
 python -m pytest tests/ -v
 ```
 
-The demo walks through a complete scenario: creating market data and instruments, building a trade blotter, shocking SOFR and watching reactive recalculation cascade, then running periodic Walpole jobs for 10 seconds.
+The demo fetches live prices from Yahoo Finance for AAPL, MSFT, TSLA, and EUR/USD, builds a portfolio with real valuations, shocks SOFR to watch reactive recalculation, then runs periodic Walpole jobs that re-fetch market data every 10 seconds for 30 seconds.
 
 ## Project Structure
 
@@ -120,10 +161,13 @@ bank_python/
     dagger.py            # Reactive dependency graph engine
     walpole.py           # Job runner / scheduler
     mntable.py           # Column-oriented table library
+    market_data.py       # yfinance integration + Equity/FXRate instruments
 tests/
     test_barbara.py
     test_dagger.py
     test_walpole.py
     test_mntable.py
-demo.py                  # End-to-end demo tying all four together
+    test_market_data.py
+demo.py                  # End-to-end demo with live market data
+requirements.txt         # yfinance dependency
 ```
