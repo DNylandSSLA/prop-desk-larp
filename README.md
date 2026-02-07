@@ -55,15 +55,15 @@ Reactive dependency graph for instrument pricing. When a leaf node changes, dirt
 ```python
 from bank_python import MarketData, Bond, DependencyGraph
 
-libor = MarketData("LIBOR", price=0.05)
-bond = Bond("VODA_BOND", rate_source=libor, face=100, coupon_rate=0.06, maturity=5)
+sofr = MarketData("SOFR", price=0.05)
+bond = Bond("VODA_BOND", rate_source=sofr, face=100, coupon_rate=0.06, maturity=5)
 
 graph = DependencyGraph()
 graph.register(bond)  # automatically registers underliers
 
-# Shock LIBOR — bond revalues automatically
-libor.set_price(0.07)
-graph.recalculate(libor)
+# Shock SOFR — bond revalues automatically
+sofr.set_price(0.07)
+graph.recalculate(sofr)
 print(bond.value)  # updated price
 ```
 
@@ -109,7 +109,7 @@ python demo.py
 python -m pytest tests/ -v
 ```
 
-The demo walks through a complete scenario: creating market data and instruments, building a trade blotter, shocking LIBOR and watching reactive recalculation cascade, then running periodic Walpole jobs for 10 seconds.
+The demo walks through a complete scenario: creating market data and instruments, building a trade blotter, shocking SOFR and watching reactive recalculation cascade, then running periodic Walpole jobs for 10 seconds.
 
 ## Project Structure
 

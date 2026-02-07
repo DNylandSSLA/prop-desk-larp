@@ -60,7 +60,7 @@ class TestHierarchicalKeys:
         db = BarbaraDB.open("default")
         db["/Instruments/BOND_1"] = "bond1"
         db["/Instruments/CDS_1"] = "cds1"
-        db["/MarketData/LIBOR"] = "libor"
+        db["/MarketData/SOFR"] = "sofr"
 
         inst_keys = db.keys("/Instruments/")
         assert len(inst_keys) == 2
@@ -68,7 +68,7 @@ class TestHierarchicalKeys:
         assert "/Instruments/CDS_1" in inst_keys
 
         md_keys = db.keys("/MarketData/")
-        assert md_keys == ["/MarketData/LIBOR"]
+        assert md_keys == ["/MarketData/SOFR"]
         db.close()
 
 

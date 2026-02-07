@@ -10,11 +10,11 @@ from bank_python.dagger import (
 
 class TestMarketData:
     def test_initial_value(self):
-        md = MarketData("LIBOR", price=0.05)
+        md = MarketData("SOFR", price=0.05)
         assert md.value == 0.05
 
     def test_set_price(self):
-        md = MarketData("LIBOR", price=0.05)
+        md = MarketData("SOFR", price=0.05)
         md.set_price(0.07)
         assert md.value == 0.07
 

@@ -8,7 +8,7 @@ Walks through a complete scenario tying all four components together:
 3. Store everything in Barbara
 4. Build a trade blotter in MnTable, demonstrate lazy queries
 5. Construct positions and a trading book
-6. Shock LIBOR, watch reactive recalculation cascade
+6. Shock SOFR, watch reactive recalculation cascade
 7. Start Walpole with periodic jobs
 8. Run for 10 seconds, then show final state
 """
@@ -53,23 +53,23 @@ def main():
     graph = DependencyGraph()
 
     # Market data (leaf nodes)
-    libor = MarketData("LIBOR_3M", price=0.05)
+    sofr = MarketData("SOFR_3M", price=0.05)
     voda_price = MarketData("VODA_SPOT", price=215.0)
     voda_spread = MarketData("VODA_CREDIT_SPREAD", price=0.02)
 
     # Derived instruments
-    bond = Bond("VODA_BOND", rate_source=libor, face=100, coupon_rate=0.06, maturity=5)
+    bond = Bond("VODA_BOND", rate_source=sofr, face=100, coupon_rate=0.06, maturity=5)
     cds = CreditDefaultSwap("VODA_CDS", credit_spread_source=voda_spread,
-                            rate_source=libor, notional=10_000_000, maturity=5)
+                            rate_source=sofr, notional=10_000_000, maturity=5)
     option = Option("VODA_CALL", spot_source=voda_price, strike=220.0,
                     volatility=0.25, time_to_expiry=0.5)
 
     # Register all in the graph
-    for inst in [libor, voda_price, voda_spread, bond, cds, option]:
+    for inst in [sofr, voda_price, voda_spread, bond, cds, option]:
         graph.register(inst)
 
     print(f"  {graph}")
-    print(f"  LIBOR_3M      = {libor.value:.4f}")
+    print(f"  SOFR_3M       = {sofr.value:.4f}")
     print(f"  VODA_SPOT     = {voda_price.value:.2f}")
     print(f"  VODA_BOND     = {bond.value:.4f}")
     print(f"  VODA_CDS      = {cds.value:.2f}")
@@ -80,7 +80,7 @@ def main():
     db["/Instruments/VODA_BOND"] = bond
     db["/Instruments/VODA_CDS"] = cds
     db["/Instruments/VODA_CALL"] = option
-    db["/MarketData/LIBOR_3M"] = libor
+    db["/MarketData/SOFR_3M"] = sofr
     db["/MarketData/VODA_SPOT"] = voda_price
     print(f"  Keys under /Instruments/: {db.keys('/Instruments/')}")
     print(f"  Keys under /MarketData/:  {db.keys('/MarketData/')}")
@@ -144,19 +144,19 @@ def main():
 
     db["/Books/rates_desk"] = book
 
-    # ── 6. LIBOR Shock ───────────────────────────────────────────────────
-    print("\n── 6. Dagger: Shocking LIBOR from 5% to 7% ──")
+    # ── 6. SOFR Shock ────────────────────────────────────────────────────
+    print("\n── 6. Dagger: Shocking SOFR from 5% to 7% ──")
     print(f"  Before shock:")
-    print(f"    LIBOR  = {libor.value:.4f}")
+    print(f"    SOFR   = {sofr.value:.4f}")
     print(f"    Bond   = {bond.value:.4f}")
     print(f"    CDS    = {cds.value:.2f}")
     print(f"    Book   = {book.total_value:.2f}")
 
-    libor.set_price(0.07)
-    recalced = graph.recalculate(libor)
+    sofr.set_price(0.07)
+    recalced = graph.recalculate(sofr)
 
     print(f"\n  After shock (recalculated {recalced}):")
-    print(f"    LIBOR  = {libor.value:.4f}")
+    print(f"    SOFR   = {sofr.value:.4f}")
     print(f"    Bond   = {bond.value:.4f}")
     print(f"    CDS    = {cds.value:.2f}")
     print(f"    Book   = {book.total_value:.2f}")
@@ -170,14 +170,14 @@ def main():
         """Simulate market data ticking."""
         tick_count["n"] += 1
         new_rate = 0.05 + random.uniform(-0.005, 0.005)
-        libor.set_price(new_rate)
+        sofr.set_price(new_rate)
         new_spot = 215 + random.uniform(-5, 5)
         voda_price.set_price(new_spot)
-        return {"libor": new_rate, "voda_spot": new_spot, "tick": tick_count["n"]}
+        return {"sofr": new_rate, "voda_spot": new_spot, "tick": tick_count["n"]}
 
     def revalue_book():
         """Revalue the book after market data changes."""
-        graph.recalculate(libor)
+        graph.recalculate(sofr)
         graph.recalculate(voda_price)
         total = book.total_value
         return {"book_value": total, "bond": bond.value, "option": option.value}
@@ -186,7 +186,7 @@ def main():
         """Generate a summary report."""
         report = (
             f"Tick #{tick_count['n']}: "
-            f"LIBOR={libor.value:.4f}, "
+            f"SOFR={sofr.value:.4f}, "
             f"VODA={voda_price.value:.2f}, "
             f"Bond={bond.value:.4f}, "
             f"Book={book.total_value:.2f}"
