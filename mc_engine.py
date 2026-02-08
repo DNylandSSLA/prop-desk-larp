@@ -41,6 +41,7 @@ from bank_python import (
     Option,
     Position,
 )
+from bank_python.risk_models import HestonProcess, MertonJumpDiffusion
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +153,7 @@ class CovarianceBuilder:
             "sigma": sigma,
             "L": L,
             "tickers": valid_tickers,
+            "returns_matrix": returns,
         }
 
 
@@ -501,6 +503,27 @@ STRESS_SCENARIOS = {
         "fx_shock": -0.10,
         "vix_level": None,
         "description": "10% USD appreciation (FX pairs drop)",
+    },
+    "Tech Crash": {
+        "equity_shock": -0.25,
+        "rate_shock_bp": -50,
+        "fx_shock": 0.0,
+        "vix_level": 45.0,
+        "description": "Tech sector selloff with flight to safety",
+    },
+    "Stagflation": {
+        "equity_shock": -0.20,
+        "rate_shock_bp": 300,
+        "fx_shock": -0.05,
+        "vix_level": 40.0,
+        "description": "Rising rates + falling growth + strong dollar",
+    },
+    "Credit Crunch": {
+        "equity_shock": -0.15,
+        "rate_shock_bp": 150,
+        "fx_shock": 0.0,
+        "vix_level": 35.0,
+        "description": "Widening spreads, HY selloff, bank stress",
     },
 }
 
@@ -1041,12 +1064,19 @@ class MonteCarloEngine:
         results = engine.run_full_simulation()
     """
 
-    def __init__(self, traders, state, db, config=None, compute_greeks_fn=None):
+    def __init__(self, traders, state, db, config=None, compute_greeks_fn=None,
+                 model="gbm"):
+        """
+        Parameters
+        ----------
+        model : str — "gbm" (default), "heston", or "merton"
+        """
         self.traders = traders
         self.state = state
         self.db = db
         self.config = config or MCConfig()
         self.compute_greeks_fn = compute_greeks_fn
+        self.model = model
 
         self.cov_builder = CovarianceBuilder()
         self.path_sim = PathSimulator()
@@ -1087,11 +1117,16 @@ class MonteCarloEngine:
         valid_tickers = cov_data["tickers"]
         ticker_to_idx = {t: i for i, t in enumerate(valid_tickers)}
 
-        # 3. Simulate paths
-        S_terminal = self.path_sim.simulate(
-            cov_data["S0"], cov_data["mu"], cov_data["sigma"],
-            cov_data["L"], self.config,
-        )
+        # 3. Simulate paths (model-dependent)
+        if self.model == "heston":
+            S_terminal = self._simulate_heston(cov_data)
+        elif self.model == "merton":
+            S_terminal = self._simulate_merton(cov_data)
+        else:
+            S_terminal = self.path_sim.simulate(
+                cov_data["S0"], cov_data["mu"], cov_data["sigma"],
+                cov_data["L"], self.config,
+            )
 
         # 4. Reprice
         reprice_result = self.repricer.reprice_all(
@@ -1151,6 +1186,75 @@ class MonteCarloEngine:
     def run_stress_only(self):
         """Run stress tests without full MC simulation."""
         return self.stress_engine.run_all_scenarios(self.traders, self.state)
+
+    def _simulate_heston(self, cov_data):
+        """Simulate terminal prices using Heston stochastic vol, per-asset."""
+        rng = np.random.default_rng(self.config.random_seed)
+        n_assets = len(cov_data["S0"])
+        dt_total = self.config.horizon_days / 252.0
+        n_steps = 50 * self.config.horizon_days
+        dt_step = dt_total / max(n_steps, 1)
+
+        heston = HestonProcess()
+        cols = []
+        for i in range(n_assets):
+            S_i, _ = heston.simulate(
+                S0=cov_data["S0"][i],
+                mu=cov_data["mu"][i],
+                n_paths=self.config.n_paths,
+                n_steps=n_steps,
+                dt=dt_step,
+                rng=rng,
+            )
+            cols.append(S_i)
+
+        S_terminal = np.column_stack(cols)
+
+        # Apply cross-asset correlation via Cholesky on the log-returns
+        L = cov_data["L"]
+        log_returns = np.log(S_terminal / cov_data["S0"])
+        # Standardize, correlate, de-standardize
+        stds = np.std(log_returns, axis=0, keepdims=True)
+        stds = np.maximum(stds, 1e-10)
+        Z = log_returns / stds
+        Z_corr = (L @ Z.T).T
+        corr_returns = Z_corr * stds
+        S_terminal = cov_data["S0"] * np.exp(corr_returns)
+
+        return S_terminal
+
+    def _simulate_merton(self, cov_data):
+        """Simulate terminal prices using Merton jump-diffusion, per-asset."""
+        rng = np.random.default_rng(self.config.random_seed)
+        n_assets = len(cov_data["S0"])
+        dt = self.config.horizon_days / 252.0
+
+        merton = MertonJumpDiffusion()
+        cols = []
+        for i in range(n_assets):
+            S_i = merton.simulate(
+                S0=cov_data["S0"][i],
+                mu=cov_data["mu"][i],
+                sigma=cov_data["sigma"][i],
+                n_paths=self.config.n_paths,
+                dt=dt,
+                rng=rng,
+            )
+            cols.append(S_i)
+
+        S_terminal = np.column_stack(cols)
+
+        # Apply cross-asset correlation via Cholesky
+        L = cov_data["L"]
+        log_returns = np.log(S_terminal / cov_data["S0"])
+        stds = np.std(log_returns, axis=0, keepdims=True)
+        stds = np.maximum(stds, 1e-10)
+        Z = log_returns / stds
+        Z_corr = (L @ Z.T).T
+        corr_returns = Z_corr * stds
+        S_terminal = cov_data["S0"] * np.exp(corr_returns)
+
+        return S_terminal
 
     def _collect_tickers(self):
         """Collect Yahoo Finance tickers referenced by trader positions."""

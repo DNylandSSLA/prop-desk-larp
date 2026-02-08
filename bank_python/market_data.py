@@ -100,15 +100,19 @@ class MarketDataFetcher:
                             if ticker not in data["Close"].columns:
                                 logger.warning(f"Ticker {ticker} not in results, skipping")
                                 continue
-                            close_val = data["Close"][ticker].iloc[-1]
-                            if close_val != close_val:  # NaN check
-                                logger.warning(f"NaN price for {ticker}, skipping")
+                            # Use last valid (non-NaN) value — handles mixed
+                            # trading calendars (equities vs FX vs crypto)
+                            series = data["Close"][ticker].dropna()
+                            if series.empty:
+                                logger.warning(f"No valid price for {ticker}, skipping")
                                 continue
+                            close_val = series.iloc[-1]
                             meta = {}
                             for col in ("Open", "High", "Low", "Close", "Volume"):
                                 if col in data.columns:
-                                    val = data[col][ticker].iloc[-1]
-                                    if val == val:  # not NaN
+                                    col_series = data[col][ticker].dropna()
+                                    if not col_series.empty:
+                                        val = col_series.iloc[-1]
                                         meta[col.lower()] = float(val) if col != "Volume" else int(val)
                             results[ticker] = MarketDataSnapshot(
                                 ticker=ticker, price=float(close_val),

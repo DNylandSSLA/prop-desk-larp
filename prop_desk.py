@@ -3,7 +3,7 @@
 Prop Trading Desk Tracker — Multi-trader, multi-strategy risk dashboard.
 
 Showcases the full bank_python stack (Barbara, Dagger, MnTable, Walpole)
-with 4 traders running different strategies, live market data, Greeks-based
+with 14 traders running different strategies, live market data, Greeks-based
 risk monitoring, and a Rich Live dashboard.
 
 Usage:
@@ -40,6 +40,7 @@ from bank_python import (
     BarbaraDB,
     Book,
     Bond,
+    CreditDefaultSwap,
     DependencyGraph,
     Equity,
     FXRate,
@@ -62,8 +63,43 @@ log = logging.getLogger("prop_desk")
 DATA_DIR = Path(__file__).parent / "personal_doNOTputongithub"
 DB_PATH = DATA_DIR / "prop_desk.db"
 
-EQUITY_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "GOOGL", "AMZN", "META", "SPY"]
-FX_TICKERS = ["EURUSD=X", "GBPUSD=X"]
+EQUITY_TICKERS = [
+    # ── Mega-cap tech (first 8 kept for backward compat with [:4] / [:6] slices) ──
+    "AAPL", "MSFT", "TSLA", "NVDA", "GOOGL", "AMZN", "META", "SPY",
+    # ── More tech / semis ──
+    "AVGO", "CRM", "ORCL", "ADBE", "AMD", "INTC", "NFLX", "CSCO", "TXN",
+    "QCOM", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "SNPS", "CDNS", "PANW",
+    "NOW", "SHOP", "SNOW", "DDOG", "NET", "CRWD", "ZS", "TEAM", "WDAY",
+    "DASH", "RBLX", "U", "TTD", "ROKU", "PINS", "SNAP", "SPOT",
+    # ── Finance ──
+    "JPM", "GS", "BAC", "MS", "V", "MA", "BRK-B", "C", "WFC", "AXP",
+    "SCHW", "BLK", "ICE", "CME", "SPGI", "MCO", "COF", "USB",
+    # ── Healthcare / biotech ──
+    "JNJ", "UNH", "PFE", "LLY", "ABBV", "MRK", "TMO", "ABT", "AMGN",
+    "BMY", "GILD", "ISRG", "MDT", "SYK", "REGN", "VRTX", "MRNA", "BIIB",
+    # ── Consumer ──
+    "WMT", "COST", "KO", "PEP", "MCD", "NKE", "DIS", "SBUX", "TGT",
+    "LOW", "HD", "TJX", "ROST", "YUM", "CMG", "ABNB", "BKNG",
+    # ── Energy ──
+    "XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO", "OXY",
+    # ── Industrial / defense ──
+    "CAT", "BA", "GE", "HON", "LMT", "RTX", "DE", "UNP", "UPS", "FDX",
+    "WM", "EMR", "ITW", "GD", "NOC",
+    # ── Materials / mining ──
+    "LIN", "APD", "FCX", "NEM", "NUE", "STLD",
+    # ── Telecom / media ──
+    "T", "VZ", "TMUS", "CMCSA", "CHTR", "WBD",
+    # ── REITs ──
+    "PLD", "AMT", "CCI", "EQIX", "SPG", "O",
+    # ── Fintech / crypto / other ──
+    "PYPL", "COIN", "PLTR", "UBER", "LYFT", "RIVN", "LCID", "SOFI",
+    "HOOD", "AFRM", "MELI", "SE", "NU",
+    # ── ETFs ──
+    "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLP", "XLY",
+    "XLB", "XLU", "XLRE", "GLD", "SLV", "TLT", "HYG", "LQD", "EEM", "EFA",
+    "VWO", "ARKK", "SOXX", "SMH", "KWEB", "FXI", "VNQ", "IBIT",
+]
+FX_TICKERS = ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X", "USDCAD=X", "USDCHF=X"]
 VIX_TICKER = "^VIX"
 ALL_TICKERS = EQUITY_TICKERS + FX_TICKERS + [VIX_TICKER]
 
@@ -342,6 +378,10 @@ def setup_desk(db):
 
     eurusd_md = MarketData("EURUSD_RATE", price=1.08)
     gbpusd_md = MarketData("GBPUSD_RATE", price=1.27)
+    usdjpy_md = MarketData("USDJPY_RATE", price=150.0)
+    audusd_md = MarketData("AUDUSD_RATE", price=0.65)
+    usdcad_md = MarketData("USDCAD_RATE", price=1.35)
+    usdchf_md = MarketData("USDCHF_RATE", price=0.88)
     vix_md = MarketData("VIX", price=18.0)
     sofr_md = MarketData("SOFR", price=fetch_sofr())
     spread_md = MarketData("CREDIT_SPREAD", price=0.02)
@@ -354,6 +394,10 @@ def setup_desk(db):
 
     eurusd = FXRate("EURUSD", rate_source=eurusd_md, base_currency="EUR", quote_currency="USD")
     gbpusd = FXRate("GBPUSD", rate_source=gbpusd_md, base_currency="GBP", quote_currency="USD")
+    usdjpy = FXRate("USDJPY", rate_source=usdjpy_md, base_currency="USD", quote_currency="JPY")
+    audusd = FXRate("AUDUSD", rate_source=audusd_md, base_currency="AUD", quote_currency="USD")
+    usdcad = FXRate("USDCAD", rate_source=usdcad_md, base_currency="USD", quote_currency="CAD")
+    usdchf = FXRate("USDCHF", rate_source=usdchf_md, base_currency="USD", quote_currency="CHF")
 
     # Options for Bob (vol_arb)
     aapl_call = Option("AAPL_C230", spot_source=spots["AAPL"], strike=230.0,
@@ -364,12 +408,36 @@ def setup_desk(db):
     # Bond for Diana (macro)
     bond_5y = Bond("BOND_5Y", rate_source=sofr_md, face=100.0, coupon_rate=0.06, maturity=5)
 
+    # Bonds for Elena (carry/curve trades)
+    bond_10y = Bond("BOND_10Y", rate_source=sofr_md, face=100.0, coupon_rate=0.055, maturity=10)
+    bond_2y = Bond("BOND_2Y", rate_source=sofr_md, face=100.0, coupon_rate=0.05, maturity=2)
+
+    # CDS for Nero (credit arb)
+    cds_ig = CreditDefaultSwap("CDS_IG", credit_spread_source=spread_md,
+                                rate_source=sofr_md, notional=5_000_000, maturity=5)
+    cds_hy = CreditDefaultSwap("CDS_HY", credit_spread_source=spread_md,
+                                rate_source=sofr_md, notional=5_000_000, maturity=3)
+
+    # Options for Vivian (gamma scalp), Kenji (vol spread)
+    nvda_call = Option("NVDA_C200", spot_source=spots["NVDA"], strike=200.0,
+                       volatility=0.35, time_to_expiry=0.5, is_call=True)
+    nvda_put = Option("NVDA_P170", spot_source=spots["NVDA"], strike=170.0,
+                      volatility=0.35, time_to_expiry=0.5, is_call=False)
+    tsla_call = Option("TSLA_C450", spot_source=spots["TSLA"], strike=450.0,
+                       volatility=0.40, time_to_expiry=0.5, is_call=True)
+    meta_call = Option("META_C700", spot_source=spots["META"], strike=700.0,
+                       volatility=0.28, time_to_expiry=0.5, is_call=True)
+
     # Register all in graph
     all_instruments = (
         list(spots.values())
-        + [eurusd_md, gbpusd_md, vix_md, sofr_md, spread_md]
+        + [eurusd_md, gbpusd_md, usdjpy_md, audusd_md, usdcad_md, usdchf_md,
+           vix_md, sofr_md, spread_md]
         + list(equities.values())
-        + [eurusd, gbpusd, aapl_call, msft_put, bond_5y]
+        + [eurusd, gbpusd, usdjpy, audusd, usdcad, usdchf,
+           aapl_call, msft_put, bond_5y,
+           bond_10y, bond_2y, cds_ig, cds_hy,
+           nvda_call, nvda_put, tsla_call, meta_call]
     )
     for inst in all_instruments:
         graph.register(inst)
@@ -380,37 +448,173 @@ def setup_desk(db):
         mgr.register_ticker(ticker, spots[ticker])
     mgr.register_ticker("EURUSD=X", eurusd_md)
     mgr.register_ticker("GBPUSD=X", gbpusd_md)
+    mgr.register_ticker("USDJPY=X", usdjpy_md)
+    mgr.register_ticker("AUDUSD=X", audusd_md)
+    mgr.register_ticker("USDCAD=X", usdcad_md)
+    mgr.register_ticker("USDCHF=X", usdchf_md)
     mgr.register_ticker("^VIX", vix_md)
 
     # -- Traders with seed positions --
-    # Alice: momentum
+    # Alice: momentum — rides trends in tech and semis
     alice_book = Book("Alice")
     alice_book.add_position(Position(equities["AAPL"], 200))
     alice_book.add_position(Position(equities["NVDA"], 100))
     alice_book.add_position(Position(equities["TSLA"], 50))
+    alice_book.add_position(Position(equities["AVGO"], 80))
+    alice_book.add_position(Position(equities["AMD"], 120))
+    alice_book.add_position(Position(equities["CRWD"], 60))
 
-    # Bob: vol_arb (short options)
+    # Bob: vol_arb — short options premium, hedged
     bob_book = Book("Bob")
     bob_book.add_position(Position(aapl_call, -10))
     bob_book.add_position(Position(msft_put, -5))
+    bob_book.add_position(Position(equities["AAPL"], 50))   # delta hedge
+    bob_book.add_position(Position(equities["MSFT"], -25))   # delta hedge
 
-    # Charlie: stat_arb
+    # Charlie: stat_arb — mean-reversion pairs across sectors
     charlie_book = Book("Charlie")
     charlie_book.add_position(Position(equities["GOOGL"], 100))
     charlie_book.add_position(Position(equities["AMZN"], -80))
     charlie_book.add_position(Position(equities["META"], 60))
+    charlie_book.add_position(Position(equities["JPM"], 90))
+    charlie_book.add_position(Position(equities["GS"], -70))
+    charlie_book.add_position(Position(equities["XOM"], 80))
+    charlie_book.add_position(Position(equities["CVX"], -60))
 
-    # Diana: macro
+    # Diana: macro — rates, FX, and broad indices
     diana_book = Book("Diana")
     diana_book.add_position(Position(eurusd, 50_000))
+    diana_book.add_position(Position(usdjpy, -30_000))
     diana_book.add_position(Position(bond_5y, 500))
     diana_book.add_position(Position(equities["SPY"], 100))
+    diana_book.add_position(Position(equities["GLD"], 200))
+    diana_book.add_position(Position(equities["TLT"], 150))
+    diana_book.add_position(Position(equities["EEM"], 300))
+
+    # Nero: credit_arb — CDS basis trades, credit carry, HY exposure
+    nero_book = Book("Nero")
+    nero_book.add_position(Position(cds_ig, 1))
+    nero_book.add_position(Position(cds_hy, -1))
+    nero_book.add_position(Position(bond_10y, 200))
+    nero_book.add_position(Position(equities["HYG"], 100))
+    nero_book.add_position(Position(equities["LQD"], 150))
+    nero_book.add_position(Position(equities["BAC"], 200))
+
+    # Tony: tech_momentum — heavy conviction longs across the tech stack
+    tony_book = Book("Tony")
+    tony_book.add_position(Position(equities["NVDA"], 150))
+    tony_book.add_position(Position(equities["TSLA"], 80))
+    tony_book.add_position(Position(equities["META"], 120))
+    tony_book.add_position(Position(equities["MSFT"], 60))
+    tony_book.add_position(Position(equities["AVGO"], 70))
+    tony_book.add_position(Position(equities["AMD"], 90))
+    tony_book.add_position(Position(equities["NFLX"], 40))
+    tony_book.add_position(Position(equities["CRM"], 50))
+    tony_book.add_position(Position(equities["NOW"], 30))
+    tony_book.add_position(Position(equities["PANW"], 45))
+
+    # Vivian: gamma_scalp — long straddles, delta-hedged
+    vivian_book = Book("Vivian")
+    vivian_book.add_position(Position(nvda_call, 20))
+    vivian_book.add_position(Position(nvda_put, 15))
+    vivian_book.add_position(Position(equities["NVDA"], -100))
+    vivian_book.add_position(Position(meta_call, 10))
+    vivian_book.add_position(Position(equities["META"], -40))
+
+    # Marcus: pairs_trade — long/short equity pairs across sectors
+    marcus_book = Book("Marcus")
+    marcus_book.add_position(Position(equities["GOOGL"], 80))
+    marcus_book.add_position(Position(equities["MSFT"], -60))
+    marcus_book.add_position(Position(equities["AAPL"], 70))
+    marcus_book.add_position(Position(equities["AMZN"], -50))
+    marcus_book.add_position(Position(equities["XOM"], 100))
+    marcus_book.add_position(Position(equities["CVX"], -80))
+    marcus_book.add_position(Position(equities["HD"], 40))
+    marcus_book.add_position(Position(equities["LOW"], -35))
+    marcus_book.add_position(Position(equities["V"], 50))
+    marcus_book.add_position(Position(equities["MA"], -45))
+
+    # Elena: carry_trade — FX carry + yield curve + EM
+    elena_book = Book("Elena")
+    elena_book.add_position(Position(gbpusd, 30_000))
+    elena_book.add_position(Position(usdjpy, 40_000))
+    elena_book.add_position(Position(audusd, 25_000))
+    elena_book.add_position(Position(bond_5y, 300))
+    elena_book.add_position(Position(bond_10y, 200))
+    elena_book.add_position(Position(equities["EEM"], 200))
+    elena_book.add_position(Position(equities["EFA"], 150))
+
+    # Raj: contrarian — short momentum leaders, long beaten-down value
+    raj_book = Book("Raj")
+    raj_book.add_position(Position(equities["TSLA"], -40))
+    raj_book.add_position(Position(equities["NVDA"], -30))
+    raj_book.add_position(Position(equities["COIN"], -50))
+    raj_book.add_position(Position(equities["BA"], 80))
+    raj_book.add_position(Position(equities["DIS"], 100))
+    raj_book.add_position(Position(equities["PFE"], 200))
+    raj_book.add_position(Position(equities["INTC"], 150))
+    raj_book.add_position(Position(equities["T"], 300))
+
+    # Sophia: index_arb — short ETFs vs long component baskets
+    sophia_book = Book("Sophia")
+    sophia_book.add_position(Position(equities["SPY"], -200))
+    sophia_book.add_position(Position(equities["QQQ"], -100))
+    sophia_book.add_position(Position(equities["AAPL"], 150))
+    sophia_book.add_position(Position(equities["MSFT"], 80))
+    sophia_book.add_position(Position(equities["NVDA"], 50))
+    sophia_book.add_position(Position(equities["GOOGL"], 40))
+    sophia_book.add_position(Position(equities["AMZN"], 35))
+    sophia_book.add_position(Position(equities["META"], 25))
+    sophia_book.add_position(Position(equities["AVGO"], 30))
+
+    # Kenji: vol_spread — long/short options across strikes and underlyings
+    kenji_book = Book("Kenji")
+    kenji_book.add_position(Position(aapl_call, 15))
+    kenji_book.add_position(Position(msft_put, 10))
+    kenji_book.add_position(Position(tsla_call, 8))
+    kenji_book.add_position(Position(nvda_put, -12))
+    kenji_book.add_position(Position(meta_call, 5))
+
+    # Zara: event_driven — concentrated bets on catalysts + crypto exposure
+    zara_book = Book("Zara")
+    zara_book.add_position(Position(equities["TSLA"], 200))
+    zara_book.add_position(Position(equities["META"], 150))
+    zara_book.add_position(Position(equities["COIN"], 300))
+    zara_book.add_position(Position(equities["PLTR"], 500))
+    zara_book.add_position(Position(equities["RIVN"], 400))
+    zara_book.add_position(Position(equities["SOFI"], 600))
+    zara_book.add_position(Position(equities["SPY"], -50))
+
+    # Oscar: multi_asset — diversified across every asset class
+    oscar_book = Book("Oscar")
+    oscar_book.add_position(Position(equities["AAPL"], 50))
+    oscar_book.add_position(Position(equities["JPM"], 60))
+    oscar_book.add_position(Position(equities["JNJ"], 40))
+    oscar_book.add_position(Position(equities["XOM"], 50))
+    oscar_book.add_position(Position(equities["CAT"], 30))
+    oscar_book.add_position(Position(eurusd, 20_000))
+    oscar_book.add_position(Position(usdchf, 15_000))
+    oscar_book.add_position(Position(bond_5y, 100))
+    oscar_book.add_position(Position(bond_2y, 200))
+    oscar_book.add_position(Position(equities["GLD"], 100))
+    oscar_book.add_position(Position(equities["SPY"], 80))
+    oscar_book.add_position(Position(equities["QQQ"], 60))
 
     traders = [
         Trader("Alice", "momentum", alice_book),
         Trader("Bob", "vol_arb", bob_book),
         Trader("Charlie", "stat_arb", charlie_book),
         Trader("Diana", "macro", diana_book),
+        Trader("Nero", "credit_arb", nero_book),
+        Trader("Tony", "tech_momentum", tony_book),
+        Trader("Vivian", "gamma_scalp", vivian_book),
+        Trader("Marcus", "pairs_trade", marcus_book),
+        Trader("Elena", "carry_trade", elena_book),
+        Trader("Raj", "contrarian", raj_book),
+        Trader("Sophia", "index_arb", sophia_book),
+        Trader("Kenji", "vol_spread", kenji_book),
+        Trader("Zara", "event_driven", zara_book),
+        Trader("Oscar", "multi_asset", oscar_book),
     ]
 
     # Store trader profiles in Barbara
@@ -456,11 +660,27 @@ def setup_desk(db):
         "vix_md": vix_md,
         "eurusd_md": eurusd_md,
         "gbpusd_md": gbpusd_md,
+        "usdjpy_md": usdjpy_md,
+        "audusd_md": audusd_md,
+        "usdcad_md": usdcad_md,
+        "usdchf_md": usdchf_md,
         "aapl_call": aapl_call,
         "msft_put": msft_put,
         "bond_5y": bond_5y,
+        "bond_10y": bond_10y,
+        "bond_2y": bond_2y,
+        "cds_ig": cds_ig,
+        "cds_hy": cds_hy,
+        "nvda_call": nvda_call,
+        "nvda_put": nvda_put,
+        "tsla_call": tsla_call,
+        "meta_call": meta_call,
         "eurusd": eurusd,
         "gbpusd": gbpusd,
+        "usdjpy": usdjpy,
+        "audusd": audusd,
+        "usdcad": usdcad,
+        "usdchf": usdchf,
     }
 
 
@@ -1058,7 +1278,54 @@ def run_live_dashboard(db, state, config, console):
         depends_on=["revalue"],
     ))
 
-    job_names = ["mkt_data", "revalue", "risk_check", "snapshot", "mc_sim"]
+    def job_signal_gen():
+        """Run signal generators, log results."""
+        from bank_python.trading_engine import MomentumSignal, MacroSignal
+        try:
+            mom = MomentumSignal(tickers=EQUITY_TICKERS[:4])
+            macro = MacroSignal()
+            signals = mom.generate_signals(state) + macro.generate_signals(state)
+            with db_lock:
+                now = datetime.now()
+                for sig in signals:
+                    db[f"/Trading/signals/auto/{now.strftime('%H%M%S')}"] = {
+                        "instrument": sig.instrument,
+                        "side": sig.side,
+                        "strength": sig.strength,
+                        "reason": sig.reason,
+                    }
+            return {"n_signals": len(signals)}
+        except Exception as e:
+            log.warning(f"Signal gen failed: {e}")
+            return {"status": "error", "error": str(e)}
+
+    def job_vol_surface():
+        """Refresh vol surfaces for option underlyings."""
+        from bank_python.risk_models import VolSurface
+        try:
+            surfaces = {}
+            for ticker in ["AAPL", "MSFT"]:
+                vs = VolSurface(ticker, barbara=db)
+                vs.build()
+                surfaces[ticker] = vs
+            state["vol_surfaces"] = surfaces
+            return {"n_surfaces": len(surfaces)}
+        except Exception as e:
+            log.warning(f"Vol surface refresh failed: {e}")
+            return {"status": "error", "error": str(e)}
+
+    runner.add_job(JobConfig(
+        name="signal_gen", callable=job_signal_gen,
+        mode=JobMode.PERIODIC, interval=60.0,
+        depends_on=["revalue"],
+    ))
+    runner.add_job(JobConfig(
+        name="vol_surface", callable=job_vol_surface,
+        mode=JobMode.PERIODIC, interval=600.0,
+    ))
+
+    job_names = ["mkt_data", "revalue", "risk_check", "snapshot", "mc_sim",
+                 "signal_gen", "vol_surface"]
 
     console.print("[bold cyan]Starting live dashboard (Ctrl+C to stop)...[/bold cyan]\n")
     runner.start()
@@ -1104,17 +1371,18 @@ def run_live_dashboard(db, state, config, console):
 
 # ── Monte Carlo CLI commands ─────────────────────────────────────────────
 
-def cmd_mc(db, state, console, n_paths=100_000, horizon=1):
+def cmd_mc(db, state, console, n_paths=100_000, horizon=1, model="gbm"):
     """Run full Monte Carlo simulation and display results."""
     from mc_engine import MCConfig, MonteCarloEngine, MCVisualizer
 
     config = MCConfig(n_paths=n_paths, horizon_days=horizon)
     console.print(f"[dim]Running Monte Carlo simulation ({n_paths:,} paths, "
-                  f"{horizon}d horizon)...[/dim]")
+                  f"{horizon}d horizon, model={model})...[/dim]")
 
     engine = MonteCarloEngine(
         state["traders"], state, db, config,
         compute_greeks_fn=compute_greeks,
+        model=model,
     )
     results = engine.run_full_simulation()
 
@@ -1135,6 +1403,387 @@ def cmd_stress(db, state, console):
     viz.render_stress_table(results, state["traders"])
 
 
+# ── Phase 2 CLI commands ─────────────────────────────────────────────────
+
+def cmd_volsurface(db, state, console, ticker):
+    """Build and display vol surface for a ticker."""
+    from bank_python.risk_models import VolSurface, render_vol_surface
+
+    console.print(f"[dim]Building vol surface for {ticker}...[/dim]")
+    vs = VolSurface(ticker, barbara=db)
+    vs.build()
+    render_vol_surface(vs, console)
+
+
+def cmd_pnl_attr(db, state, console):
+    """Display P&L attribution."""
+    from bank_python.risk_models import PnLAttribution, render_pnl_attribution
+
+    attr = PnLAttribution(barbara=db)
+    result = attr.attribute_all(state["traders"], state, compute_greeks)
+    if result is None:
+        console.print("[yellow]First snapshot taken. Run again after market moves for attribution.[/yellow]")
+    else:
+        render_pnl_attribution(result, console)
+
+
+def cmd_order(db, state, console, trader_name, sym, side, qty, order_type="MARKET", price=None):
+    """Submit an order through the trading engine."""
+    from bank_python.trading_engine import TradingEngine, render_orders
+
+    engine = TradingEngine(barbara=db, graph=state["graph"], state=state)
+    traders = state["traders"]
+
+    trader = None
+    for t in traders:
+        if t.name.lower() == trader_name.lower():
+            trader = t
+            break
+    if trader is None:
+        console.print(f"[red]Unknown trader: {trader_name}[/red]")
+        return
+
+    order = engine.submit_order(
+        trader=trader,
+        instrument_name=sym.upper(),
+        side=side.upper(),
+        quantity=int(qty),
+        order_type=order_type.upper(),
+        limit_price=float(price) if price else None,
+    )
+
+    status_style = {"FILLED": "green", "REJECTED": "red"}.get(order.status, "yellow")
+    console.print(f"[{status_style}]Order {order.order_id}: {order.status}[/{status_style}]")
+    if order.status == "FILLED":
+        console.print(f"  Fill: ${order.filled_price:.2f}, Fees: ${order.fill_cost:.2f}")
+    elif order.status == "REJECTED":
+        console.print(f"  Reason: {order.reject_reason}")
+
+
+def cmd_orders(db, state, console, trader=None, status=None):
+    """Display the order book."""
+    from bank_python.trading_engine import TradingEngine, render_orders
+
+    engine = TradingEngine(barbara=db, graph=state["graph"], state=state)
+    # Load orders from Barbara
+    order_keys = db.keys(prefix="/Trading/orders/")
+    if not order_keys:
+        console.print("[dim]No orders found[/dim]")
+        return
+    render_orders(engine.order_book, console, trader=trader, status=status)
+
+
+def cmd_audit(db, state, console, trader=None, event_type=None):
+    """Display the audit trail."""
+    from bank_python.trading_engine import AuditTrail, render_audit
+
+    at = AuditTrail(barbara=db)
+    # Query from Barbara
+    audit_keys = db.keys(prefix="/Trading/audit/")
+    if not audit_keys:
+        console.print("[dim]No audit events found[/dim]")
+        return
+
+    for key in audit_keys:
+        event = db[key]
+        if event and isinstance(event, dict):
+            at.log(
+                event.get("event_type", "UNKNOWN"),
+                event.get("trader", ""),
+                event.get("instrument", ""),
+                details=event.get("details"),
+                order_id=event.get("order_id", ""),
+            )
+
+    render_audit(at, console, trader=trader, event_type=event_type)
+
+
+def cmd_signals(db, state, console, strategy=None):
+    """Generate and display trading signals."""
+    from bank_python.trading_engine import (
+        MomentumSignal, VolArbSignal, StatArbSignal, MacroSignal,
+    )
+    from rich.table import Table as RichTable
+    from rich.text import Text
+
+    generators = {
+        "momentum": MomentumSignal(tickers=EQUITY_TICKERS[:4]),
+        "stat_arb": StatArbSignal(pairs=[("GOOGL", "AMZN"), ("AAPL", "MSFT")]),
+        "macro": MacroSignal(),
+    }
+
+    if strategy and strategy in generators:
+        gens = {strategy: generators[strategy]}
+    else:
+        gens = generators
+
+    tbl = RichTable(title="Trading Signals", expand=True, show_header=True,
+                    header_style="bold cyan")
+    tbl.add_column("Strategy", style="bold", width=12)
+    tbl.add_column("Instrument", width=10)
+    tbl.add_column("Side", width=5)
+    tbl.add_column("Qty", justify="right", width=8)
+    tbl.add_column("Strength", justify="right", width=10)
+    tbl.add_column("Reason", width=40)
+
+    for name, gen in gens.items():
+        signals = gen.generate_signals(state)
+        for sig in signals:
+            side_style = "green" if sig.side == "BUY" else "red"
+            tbl.add_row(
+                name, sig.instrument,
+                Text(sig.side, style=side_style),
+                f"{sig.quantity:,.0f}",
+                f"{sig.strength:.2f}",
+                sig.reason[:40],
+            )
+
+    console.print(Panel(tbl, border_style="cyan"))
+
+
+def cmd_optimize(db, state, console, method="mv", long_only=True, backend="native"):
+    """Run portfolio optimization."""
+    from mc_engine import CovarianceBuilder
+    from bank_python.optimizer import (
+        MeanVarianceOptimizer, RiskParityOptimizer, BlackLittermanModel,
+        create_optimizer, render_optimal_portfolio,
+    )
+
+    mgr = state["mgr"]
+    tickers = [t for t in EQUITY_TICKERS if t in state["equities"]]
+
+    console.print(f"[dim]Building covariance for {len(tickers)} assets...[/dim]")
+    cov_builder = CovarianceBuilder()
+    cov_data = cov_builder.build(mgr, tickers)
+
+    # Use the factory for non-native backends or new methods
+    if backend != "native" or method in ("hrp", "cvar", "risk_budget"):
+        # Auto-select backend for new methods if not specified
+        if backend == "native":
+            if method == "hrp":
+                backend = "pypfopt"
+            elif method in ("cvar", "risk_budget"):
+                backend = "riskfolio"
+
+        console.print(f"[dim]Optimizing ({method}, backend={backend})...[/dim]")
+        try:
+            opt = create_optimizer(cov_data, method=method, backend=backend)
+            if method in ("mv", "max_sharpe", "bl"):
+                result = opt.optimize(long_only=long_only)
+            elif method == "min_volatility":
+                result = opt.optimize(objective="min_volatility", long_only=long_only)
+            else:
+                result = opt.optimize()
+        except ImportError as e:
+            console.print(f"[yellow]{e}[/yellow]")
+            console.print("[dim]Falling back to native backend...[/dim]")
+            backend = "native"
+            # Fall through to native handling below
+        else:
+            render_optimal_portfolio(result, console)
+            now = datetime.now()
+            db[f"/Optimizer/portfolios/{method}/{now.strftime('%Y-%m-%d')}"] = {
+                "method": method,
+                "backend": backend,
+                "weights": {t: float(w) for t, w in zip(result.tickers, result.weights)},
+                "expected_return": result.expected_return,
+                "expected_vol": result.expected_vol,
+                "sharpe": result.sharpe_ratio,
+                "timestamp": now.isoformat(),
+            }
+            return
+
+    # Native backend
+    if method == "mv":
+        console.print("[dim]Optimizing (mean-variance)...[/dim]")
+        opt = MeanVarianceOptimizer(cov_data)
+        result = opt.optimize(long_only=long_only)
+    elif method == "rp":
+        console.print("[dim]Optimizing (risk parity)...[/dim]")
+        opt = RiskParityOptimizer(cov_data)
+        result = opt.optimize()
+    elif method == "bl":
+        console.print("[dim]Optimizing (Black-Litterman)...[/dim]")
+        bl = BlackLittermanModel(cov_data)
+        result = bl.optimize(long_only=long_only)
+    else:
+        console.print(f"[red]Unknown method: {method}. Use mv, rp, bl, hrp, cvar, or risk_budget.[/red]")
+        return
+
+    render_optimal_portfolio(result, console)
+
+    # Store in Barbara
+    now = datetime.now()
+    db[f"/Optimizer/portfolios/{method}/{now.strftime('%Y-%m-%d')}"] = {
+        "method": method,
+        "backend": backend,
+        "weights": {t: float(w) for t, w in zip(result.tickers, result.weights)},
+        "expected_return": result.expected_return,
+        "expected_vol": result.expected_vol,
+        "sharpe": result.sharpe_ratio,
+        "timestamp": now.isoformat(),
+    }
+
+
+def cmd_frontier(db, state, console, n_points=30):
+    """Compute and display the efficient frontier."""
+    from mc_engine import CovarianceBuilder
+    from bank_python.optimizer import EfficientFrontier
+
+    mgr = state["mgr"]
+    tickers = [t for t in EQUITY_TICKERS if t in state["equities"]]
+
+    console.print(f"[dim]Computing efficient frontier ({n_points} points)...[/dim]")
+    cov_builder = CovarianceBuilder()
+    cov_data = cov_builder.build(mgr, tickers)
+
+    ef = EfficientFrontier(cov_data)
+    frontier = ef.compute(n_points=n_points)
+    ef.render_ascii(console, frontier)
+
+    # Store in Barbara
+    now = datetime.now()
+    db[f"/Optimizer/frontier/{now.strftime('%Y-%m-%d')}"] = {
+        "n_points": n_points,
+        "timestamp": now.isoformat(),
+    }
+
+
+def cmd_rebalance(db, state, console, method="mv", trader_name="Diana", dry_run=True):
+    """Compute and optionally execute rebalancing trades."""
+    from mc_engine import CovarianceBuilder
+    from bank_python.optimizer import (
+        MeanVarianceOptimizer, RiskParityOptimizer, Rebalancer,
+        render_rebalance_trades,
+    )
+
+    mgr = state["mgr"]
+    tickers = [t for t in EQUITY_TICKERS if t in state["equities"]]
+    traders = state["traders"]
+
+    # Find trader
+    trader = None
+    for t in traders:
+        if t.name.lower() == trader_name.lower():
+            trader = t
+            break
+    if trader is None:
+        console.print(f"[red]Unknown trader: {trader_name}[/red]")
+        return
+
+    # Get current positions
+    current = {}
+    for pos in trader.book.positions:
+        name = pos.instrument.name
+        if name in tickers:
+            current[name] = pos.quantity
+
+    # Get prices
+    prices = {}
+    for ticker in tickers:
+        eq = state["equities"].get(ticker)
+        if eq:
+            prices[ticker] = eq.value
+
+    # Optimize
+    console.print(f"[dim]Computing optimal weights ({method})...[/dim]")
+    cov_builder = CovarianceBuilder()
+    cov_data = cov_builder.build(mgr, tickers)
+
+    if method == "rp":
+        opt = RiskParityOptimizer(cov_data)
+        result = opt.optimize()
+    else:
+        opt = MeanVarianceOptimizer(cov_data)
+        result = opt.optimize()
+
+    target_weights = {t: float(w) for t, w in zip(result.tickers, result.weights)}
+    total_value = trader.book.total_value
+
+    # Compute trades
+    rb = Rebalancer()
+    trades = rb.compute_trades(current, target_weights, total_value, prices)
+    render_rebalance_trades(trades, console)
+
+    if dry_run:
+        console.print("[yellow]Dry run — no trades executed[/yellow]")
+
+
+def cmd_backtest(db, state, console, strategy_name, start, end, capital=1_000_000):
+    """Run a backtest with a named strategy."""
+    from bank_python.backtester import (
+        Backtester, MomentumBacktest, VolArbBacktest,
+        StatArbBacktest, MacroBacktest,
+        render_backtest_results,
+    )
+
+    tickers = EQUITY_TICKERS[:4]  # AAPL, MSFT, TSLA, NVDA
+
+    strategies = {
+        "momentum": lambda: MomentumBacktest(tickers, lookback=20, top_n=2),
+        "vol_arb": lambda: VolArbBacktest(tickers),
+        "stat_arb": lambda: StatArbBacktest([("AAPL", "MSFT"), ("TSLA", "NVDA")]),
+        "macro": lambda: MacroBacktest(tickers),
+    }
+
+    if strategy_name == "all":
+        strats_to_run = list(strategies.items())
+    elif strategy_name in strategies:
+        strats_to_run = [(strategy_name, strategies[strategy_name])]
+    else:
+        console.print(f"[red]Unknown strategy: {strategy_name}. "
+                      f"Options: {list(strategies.keys())} or 'all'[/red]")
+        return
+
+    console.print(f"[dim]Running backtest: {strategy_name} ({start} to {end})...[/dim]")
+
+    bt = Backtester(barbara=db)
+    for name, factory in strats_to_run:
+        bt.add_strategy(factory(), trader_name=name.title(), initial_capital=capital)
+
+    results = bt.run(tickers, start, end)
+
+    if results:
+        render_backtest_results(results, console)
+        for r in results:
+            r.tearsheet.render(console)
+    else:
+        console.print("[yellow]No results — check date range and data availability[/yellow]")
+
+
+def cmd_tearsheet(db, state, console):
+    """Display the most recent backtest tearsheet from Barbara."""
+    keys = db.keys(prefix="/Backtest/results/")
+    if not keys:
+        console.print("[dim]No backtest results found. Run a backtest first.[/dim]")
+        return
+
+    latest_key = sorted(keys)[-1]
+    metrics = db[latest_key]
+    if not metrics or not isinstance(metrics, dict):
+        console.print("[dim]No valid metrics found[/dim]")
+        return
+
+    from rich.table import Table as RichTable
+    tbl = RichTable(title="Last Backtest Tearsheet", expand=True,
+                    show_header=True, header_style="bold cyan")
+    tbl.add_column("Metric", style="bold", width=22)
+    tbl.add_column("Value", justify="right", width=16)
+
+    for key, val in metrics.items():
+        if isinstance(val, float):
+            if "return" in key or "rate" in key or "drawdown" in key:
+                tbl.add_row(key, f"{val:.2%}")
+            else:
+                tbl.add_row(key, f"{val:.2f}")
+        elif isinstance(val, int):
+            tbl.add_row(key, f"{val:,}")
+        else:
+            tbl.add_row(key, str(val))
+
+    console.print(Panel(tbl, border_style="cyan"))
+
+
 # ── CLI ──────────────────────────────────────────────────────────────────
 
 def build_parser():
@@ -1148,7 +1797,7 @@ def build_parser():
 
     # trade
     trade_p = sub.add_parser("trade", help="Enter an equity trade")
-    trade_p.add_argument("trader", help="Trader name (Alice/Bob/Charlie/Diana)")
+    trade_p.add_argument("trader", help="Trader name (Alice/Bob/Charlie/Diana/Nero/Tony/...)")
     trade_p.add_argument("sym", help="Equity symbol (e.g. AAPL)")
     trade_p.add_argument("qty", type=int, help="Quantity (positive=buy, negative=sell)")
 
@@ -1169,9 +1818,74 @@ def build_parser():
                       help="Number of simulation paths (default: 100000)")
     mc_p.add_argument("--horizon", type=int, default=1,
                       help="Horizon in trading days (default: 1)")
+    mc_p.add_argument("--model", choices=["gbm", "heston", "merton"], default="gbm",
+                      help="Simulation model (default: gbm)")
 
     # stress
     sub.add_parser("stress", help="Run stress scenarios")
+
+    # volsurface
+    vs_p = sub.add_parser("volsurface", help="Build and display vol surface")
+    vs_p.add_argument("ticker", help="Ticker symbol (e.g. AAPL)")
+
+    # pnl-attr
+    sub.add_parser("pnl-attr", help="P&L attribution report")
+
+    # order
+    order_p = sub.add_parser("order", help="Submit a trading order")
+    order_p.add_argument("trader", help="Trader name")
+    order_p.add_argument("sym", help="Instrument symbol")
+    order_p.add_argument("side", choices=["BUY", "SELL", "buy", "sell"])
+    order_p.add_argument("qty", type=int, help="Quantity")
+    order_p.add_argument("--type", dest="order_type", default="MARKET",
+                         choices=["MARKET", "LIMIT"])
+    order_p.add_argument("--price", type=float, default=None, help="Limit price")
+
+    # orders
+    orders_p = sub.add_parser("orders", help="Display order book")
+    orders_p.add_argument("--trader", default=None)
+    orders_p.add_argument("--status", default=None,
+                          choices=["PENDING", "FILLED", "CANCELLED", "REJECTED"])
+
+    # audit
+    audit_p = sub.add_parser("audit", help="Display audit trail")
+    audit_p.add_argument("--trader", default=None)
+    audit_p.add_argument("--type", dest="event_type", default=None)
+
+    # signals
+    signals_p = sub.add_parser("signals", help="Generate trading signals")
+    signals_p.add_argument("--strategy", default=None,
+                           choices=["momentum", "stat_arb", "macro"])
+
+    # optimize
+    opt_p = sub.add_parser("optimize", help="Portfolio optimization")
+    opt_p.add_argument("--method", default="mv",
+                        choices=["mv", "rp", "bl", "hrp", "cvar", "risk_budget",
+                                 "max_sharpe", "min_volatility"])
+    opt_p.add_argument("--backend", default="native",
+                        choices=["native", "pypfopt", "riskfolio"])
+    opt_p.add_argument("--long-only", action="store_true", default=True)
+
+    # frontier
+    front_p = sub.add_parser("frontier", help="Compute efficient frontier")
+    front_p.add_argument("--points", type=int, default=30)
+
+    # rebalance
+    reb_p = sub.add_parser("rebalance", help="Compute rebalancing trades")
+    reb_p.add_argument("--method", default="mv", choices=["mv", "rp"])
+    reb_p.add_argument("--trader", default="Diana")
+    reb_p.add_argument("--dry-run", action="store_true", default=True)
+
+    # backtest
+    bt_p = sub.add_parser("backtest", help="Run strategy backtest")
+    bt_p.add_argument("--strategy", required=True,
+                      help="Strategy: momentum, vol_arb, stat_arb, macro, all")
+    bt_p.add_argument("--start", required=True, help="Start date (YYYY-MM-DD)")
+    bt_p.add_argument("--end", required=True, help="End date (YYYY-MM-DD)")
+    bt_p.add_argument("--capital", type=int, default=1_000_000)
+
+    # tearsheet
+    sub.add_parser("tearsheet", help="Display last backtest tearsheet")
 
     return parser
 
@@ -1211,10 +1925,49 @@ def main():
             cmd_config(db, console, set_pair=args.set)
 
         elif args.command == "mc":
-            cmd_mc(db, state, console, n_paths=args.paths, horizon=args.horizon)
+            cmd_mc(db, state, console, n_paths=args.paths,
+                   horizon=args.horizon, model=args.model)
 
         elif args.command == "stress":
             cmd_stress(db, state, console)
+
+        elif args.command == "volsurface":
+            cmd_volsurface(db, state, console, args.ticker)
+
+        elif args.command == "pnl-attr":
+            cmd_pnl_attr(db, state, console)
+
+        elif args.command == "order":
+            cmd_order(db, state, console, args.trader, args.sym, args.side,
+                      args.qty, args.order_type, args.price)
+
+        elif args.command == "orders":
+            cmd_orders(db, state, console, trader=args.trader, status=args.status)
+
+        elif args.command == "audit":
+            cmd_audit(db, state, console, trader=args.trader,
+                      event_type=args.event_type)
+
+        elif args.command == "signals":
+            cmd_signals(db, state, console, strategy=args.strategy)
+
+        elif args.command == "optimize":
+            cmd_optimize(db, state, console, method=args.method,
+                         long_only=args.long_only, backend=args.backend)
+
+        elif args.command == "frontier":
+            cmd_frontier(db, state, console, n_points=args.points)
+
+        elif args.command == "rebalance":
+            cmd_rebalance(db, state, console, method=args.method,
+                          trader_name=args.trader, dry_run=args.dry_run)
+
+        elif args.command == "backtest":
+            cmd_backtest(db, state, console, strategy_name=args.strategy,
+                         start=args.start, end=args.end, capital=args.capital)
+
+        elif args.command == "tearsheet":
+            cmd_tearsheet(db, state, console)
 
         elif args.live:
             run_live_dashboard(db, state, config, console)

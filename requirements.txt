@@ -1,2 +1,5 @@
 yfinance>=0.2.40
 rich>=13.0
+pyportfolioopt>=1.5.6
+riskfolio-lib>=6.0.0
+QuantLib>=1.33
