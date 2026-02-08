@@ -649,9 +649,12 @@ def create_optimizer(cov_data, method="mv", backend="native", risk_free_rate=0.0
             return RiskParityOptimizer(cov_data, risk_free_rate=risk_free_rate)
         elif method == "bl":
             return BlackLittermanModel(cov_data, risk_free_rate=risk_free_rate, **kwargs)
+        elif method == "barbell":
+            from bank_python.taleb.barbell_optimizer import BarbellOptimizer
+            return BarbellOptimizer(cov_data, risk_free_rate=risk_free_rate, **kwargs)
         else:
             raise ValueError(f"Native backend does not support method={method!r}. "
-                             f"Use 'mv', 'rp', or 'bl'.")
+                             f"Use 'mv', 'rp', 'bl', or 'barbell'.")
 
     elif backend == "pypfopt":
         from bank_python.integrations import require_pypfopt

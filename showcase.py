@@ -211,6 +211,31 @@ def run_showcase(pause=8, once=False, plain=False):
                                  "2024-01-01", "2024-12-31"),
         ),
         (
+            "TALEB: TAIL DIAGNOSTICS",
+            "Hill alpha · kappa metric · max-to-sum ratio · fat-tail detection",
+            lambda: _run_taleb_tail(db, state),
+        ),
+        (
+            "TALEB: POWER LAW PRICING",
+            "Power law vs BSM option pricing · tail index scaling · no vol surface",
+            lambda: _run_taleb_pricing(state),
+        ),
+        (
+            "TALEB: HEDGING ERRORS",
+            "BSM delta hedge under Gaussian vs Student-T vs power law returns",
+            lambda: _run_taleb_hedging(),
+        ),
+        (
+            "TALEB: BARBELL PORTFOLIO",
+            "VaR-constrained safe/risky split · Taleb Ch 30",
+            lambda: _run_taleb_barbell(db, state),
+        ),
+        (
+            "TALEB: CORRELATION FRAGILITY",
+            "MV weight sensitivity to correlation perturbation · rolling instability",
+            lambda: _run_taleb_fragility(db, state),
+        ),
+        (
             "TEARSHEET",
             "Performance metrics from last backtest · Sharpe, Sortino, max DD",
             lambda: cmd_tearsheet(db, state, console),
@@ -426,6 +451,98 @@ def _run_quantlib_comparison(state):
         )
 
     console.print(Panel(btbl, border_style="cyan"))
+
+
+def _run_taleb_tail(db, state):
+    """Tail diagnostics for portfolio tickers."""
+    import numpy as np
+    from bank_python.taleb.tail_diagnostics import TailDiagnostics
+    from bank_python.taleb.rendering import render_tail_diagnostics
+
+    mgr = state["mgr"]
+    tickers = [t for t in EQUITY_TICKERS[:8] if t in state["equities"]]
+    for ticker in tickers[:3]:
+        view = mgr.history.query(ticker)
+        rows = list(view)
+        if len(rows) > 30:
+            closes = [r["close"] for r in rows if r.get("close")]
+            if len(closes) > 30:
+                returns = np.diff(np.log(closes))
+                result = TailDiagnostics.analyze(returns)
+                render_tail_diagnostics(result, console, ticker=ticker)
+
+
+def _run_taleb_pricing(state):
+    """Power law vs BSM pricing comparison."""
+    import numpy as np
+    from bank_python.taleb.power_law_pricer import PowerLawPricer
+    from bank_python.taleb.rendering import render_power_law_pricing
+
+    opt = state.get("aapl_call")
+    if opt is None:
+        console.print("[yellow]No option data for pricing comparison[/yellow]")
+        return
+
+    spot = opt.spot_source.value
+    if spot <= 0:
+        return
+
+    bsm_vol = opt.volatility
+    alpha = 3.0
+    # Anchor at 5% OTM call
+    anchor_K = spot * 1.05
+    anchor_price = PowerLawPricer._bsm_price(spot, anchor_K, bsm_vol, 1.0, is_call=True)
+
+    pricer = PowerLawPricer(
+        spot=spot, anchor_strike=anchor_K,
+        anchor_price=anchor_price, alpha=alpha, is_call=True,
+    )
+    # Strikes from ATM to deep OTM
+    strikes = [spot * m for m in [1.00, 1.05, 1.10, 1.15, 1.20, 1.30, 1.40, 1.50]]
+    result = pricer.price_range(strikes, bsm_vol=bsm_vol, T=1.0)
+    render_power_law_pricing(result, console)
+
+
+def _run_taleb_hedging():
+    """Hedging error simulation across distributions."""
+    from bank_python.taleb.hedging_error import HedgingErrorSimulator
+    from bank_python.taleb.rendering import render_hedging_errors
+
+    sim = HedgingErrorSimulator(S0=100, K=100, sigma=0.20, T=1/12, n_steps=20)
+    results = sim.compare_all(n_paths=5000, seed=42)
+    render_hedging_errors(results, console)
+
+
+def _run_taleb_barbell(db, state):
+    """Barbell portfolio optimization."""
+    from mc_engine import CovarianceBuilder
+    from bank_python.taleb.barbell_optimizer import BarbellOptimizer
+    from bank_python.taleb.rendering import render_barbell_portfolio
+
+    mgr = state["mgr"]
+    tickers = [t for t in EQUITY_TICKERS[:8] if t in state["equities"]]
+    cov_builder = CovarianceBuilder()
+    cov_data = cov_builder.build(mgr, tickers)
+
+    opt = BarbellOptimizer(cov_data)
+    result = opt.optimize()
+    render_barbell_portfolio(result, console)
+
+
+def _run_taleb_fragility(db, state):
+    """Correlation fragility analysis."""
+    from mc_engine import CovarianceBuilder
+    from bank_python.taleb.correlation_fragility import CorrelationFragilityAnalyzer
+    from bank_python.taleb.rendering import render_correlation_fragility
+
+    mgr = state["mgr"]
+    tickers = [t for t in EQUITY_TICKERS[:8] if t in state["equities"]]
+    cov_builder = CovarianceBuilder()
+    cov_data = cov_builder.build(mgr, tickers)
+
+    analyzer = CorrelationFragilityAnalyzer(cov_data)
+    result = analyzer.analyze()
+    render_correlation_fragility(result, console)
 
 
 def _jiggle_market(state, rng, intensity=1.0):
@@ -757,6 +874,92 @@ def run_dense(iterations=10):
             "trades": r.trade_count,
             "final_value": round(r.final_value, 0),
         })
+
+    # ── Taleb fat-tail analysis (once) ──
+    from bank_python.taleb.tail_diagnostics import TailDiagnostics
+    from bank_python.taleb.power_law_pricer import PowerLawPricer
+    from bank_python.taleb.hedging_error import HedgingErrorSimulator
+    from bank_python.taleb.barbell_optimizer import BarbellOptimizer
+    from bank_python.taleb.correlation_fragility import CorrelationFragilityAnalyzer
+
+    # Tail diagnostics per ticker
+    taleb_tail_data = {}
+    for ticker in tickers_opt[:4]:
+        view = mgr.history.query(ticker)
+        rows = list(view)
+        if len(rows) > 30:
+            closes = [r["close"] for r in rows if r.get("close")]
+            if len(closes) > 30:
+                returns = np.diff(np.log(closes))
+                td = TailDiagnostics.analyze(returns)
+                taleb_tail_data[ticker] = {
+                    "alpha": round(td.alpha, 2), "kappa": round(td.kappa, 4),
+                    "max_to_sum": round(td.max_to_sum, 4), "n": td.n_observations,
+                }
+    emit({"scene": "taleb_tail", "tickers": taleb_tail_data})
+
+    # Power law pricing
+    aapl_opt = state.get("aapl_call")
+    if aapl_opt and aapl_opt.spot_source.value > 0:
+        spot = aapl_opt.spot_source.value
+        bsm_vol = aapl_opt.volatility
+        anchor_K = spot * 1.05
+        anchor_p = PowerLawPricer._bsm_price(spot, anchor_K, bsm_vol, 1.0, is_call=True)
+        pricer = PowerLawPricer(spot=spot, anchor_strike=anchor_K,
+                                anchor_price=anchor_p, alpha=3.0, is_call=True)
+        strikes = [spot * m for m in [1.00, 1.05, 1.10, 1.15, 1.20, 1.30, 1.40]]
+        pr = pricer.price_range(strikes, bsm_vol=bsm_vol, T=1.0)
+        emit({
+            "scene": "taleb_pricing",
+            "spot": round(spot, 2), "alpha": 3.0,
+            "strikes": [round(k, 0) for k in pr.strikes],
+            "pl_prices": [round(p, 4) for p in pr.pl_prices],
+            "bsm_prices": [round(p, 4) for p in pr.bsm_prices],
+        })
+
+    # Hedging errors
+    he_sim = HedgingErrorSimulator(S0=100, K=100, sigma=0.20, T=1/12, n_steps=20)
+    he_results = he_sim.compare_all(n_paths=5000, seed=42)
+    emit({
+        "scene": "taleb_hedging",
+        "distributions": [{
+            "name": r.distribution, "mean": round(r.mean_error, 4),
+            "std": round(r.std_error, 4), "kurtosis": round(r.kurtosis, 1),
+            "var95": round(r.var_95, 4),
+        } for r in he_results],
+    })
+
+    # Barbell
+    try:
+        bb = BarbellOptimizer(cov_data)
+        bb_result = bb.optimize()
+        emit({
+            "scene": "taleb_barbell",
+            "safe_weight": round(float(bb_result.weights[0]), 4),
+            "risky_weights": {t: round(float(w), 4) for t, w in
+                              zip(bb_result.tickers[1:], bb_result.weights[1:])},
+            "ret": round(bb_result.expected_return, 4),
+            "vol": round(bb_result.expected_vol, 4),
+            "sharpe": round(bb_result.sharpe_ratio, 3),
+        })
+    except Exception as e:
+        emit({"scene": "taleb_barbell", "error": str(e)})
+
+    # Correlation fragility
+    try:
+        frag = CorrelationFragilityAnalyzer(cov_data)
+        frag_result = frag.analyze()
+        max_sens = float(np.max(np.abs(frag_result.weight_sensitivities)))
+        emit({
+            "scene": "taleb_fragility",
+            "max_sensitivity": round(max_sens, 4),
+            "rolling_corr_std": round(frag_result.rolling_corr_std, 4),
+            "p_value": round(frag_result.p_value, 4),
+            "sensitivities": {t: round(float(s), 4) for t, s in
+                              zip(frag_result.tickers, frag_result.weight_sensitivities)},
+        })
+    except Exception as e:
+        emit({"scene": "taleb_fragility", "error": str(e)})
 
     # ═══════════════════════════════════════════════════════════════════════
     # ITERATION LOOP — each iteration simulates one "intraday period"

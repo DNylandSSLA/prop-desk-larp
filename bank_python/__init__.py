@@ -66,6 +66,18 @@ from .optimizer import (
     Rebalancer,
     create_optimizer,
 )
+from .taleb import (
+    TailDiagnostics,
+    TailDiagnosticsResult,
+    PowerLawPricer,
+    PowerLawPricingResult,
+    PowerLawOption,
+    HedgingErrorSimulator,
+    HedgingErrorResult,
+    BarbellOptimizer,
+    CorrelationFragilityAnalyzer,
+    CorrelationFragilityResult,
+)
 from .backtester import (
     HistoricalDataLoader,
     BacktestContext,
@@ -103,6 +115,12 @@ __all__ = [
     # Optimizer
     "OptimalPortfolio", "MeanVarianceOptimizer", "RiskParityOptimizer",
     "BlackLittermanModel", "EfficientFrontier", "Rebalancer", "create_optimizer",
+    # Taleb Fat-Tail Framework
+    "TailDiagnostics", "TailDiagnosticsResult",
+    "PowerLawPricer", "PowerLawPricingResult", "PowerLawOption",
+    "HedgingErrorSimulator", "HedgingErrorResult",
+    "BarbellOptimizer",
+    "CorrelationFragilityAnalyzer", "CorrelationFragilityResult",
     # Backtester
     "HistoricalDataLoader", "BacktestContext", "BacktestStrategy",
     "MomentumBacktest", "VolArbBacktest", "StatArbBacktest", "MacroBacktest",
