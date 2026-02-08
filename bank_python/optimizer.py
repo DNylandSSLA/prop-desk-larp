@@ -166,29 +166,37 @@ class RiskParityOptimizer:
         self.tickers = cov_data["tickers"]
         self.n = len(self.tickers)
 
-    def optimize(self, max_iter=500, tol=1e-8):
+    def optimize(self, max_iter=1000, tol=1e-10):
         """
-        Find risk parity weights.
+        Find risk parity weights via damped multiplicative updates.
+
+        Each asset's risk contribution RC_i = w_i * (Sigma @ w)_i should
+        be equal. We iteratively adjust: w_i *= (target_rc / rc_i)^step,
+        with a small exponent to avoid oscillation.
 
         Returns
         -------
         OptimalPortfolio
         """
         w = np.ones(self.n) / self.n
+        target_budget = np.ones(self.n) / self.n  # equal risk budgets
 
         for _ in range(max_iter):
             Sw = self.Sigma @ w
-            port_var = w @ Sw
+            rc = w * Sw  # unnormalized risk contributions
+            rc_sum = rc.sum()
 
-            if port_var < 1e-20:
+            if rc_sum < 1e-20:
                 break
 
-            # Marginal risk contribution
-            mrc = Sw * w / port_var
+            # Normalized risk contributions
+            rc_norm = rc / rc_sum
 
-            # Inverse MRC weighting
-            inv_mrc = np.where(mrc > 1e-20, 1.0 / mrc, 1.0)
-            w_new = inv_mrc / inv_mrc.sum()
+            # Damped multiplicative update
+            ratio = target_budget / np.maximum(rc_norm, 1e-12)
+            w_new = w * np.power(ratio, 0.5)  # exponent < 1 for damping
+            w_new = np.maximum(w_new, 1e-10)
+            w_new /= w_new.sum()
 
             if np.max(np.abs(w_new - w)) < tol:
                 w = w_new

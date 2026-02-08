@@ -60,9 +60,9 @@ class TestNormHelpers:
 class TestHestonProcess:
     def test_default_params(self):
         h = HestonProcess()
-        assert h.kappa == 2.0
+        assert h.kappa == 1.5
         assert h.theta == 0.04
-        assert h.xi == 0.3
+        assert h.xi == 0.5
         assert h.rho == -0.7
         assert h.v0 == 0.04
 

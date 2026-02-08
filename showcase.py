@@ -364,6 +364,7 @@ def _run_quantlib_comparison(state):
             f"QL_{hand_opt.name}", spot_source=hand_opt.spot_source,
             strike=hand_opt.strike, volatility=hand_opt.volatility,
             time_to_expiry=hand_opt.time_to_expiry, is_call=hand_opt.is_call,
+            risk_free_rate=0.0,  # match hand-rolled BS which uses r=0
         )
         _ = ql_opt.value  # trigger compute
         greeks = ql_opt.greeks()
@@ -704,6 +705,7 @@ def run_dense(iterations=10):
                 f"QL_{hand_opt.name}", spot_source=hand_opt.spot_source,
                 strike=hand_opt.strike, volatility=hand_opt.volatility,
                 time_to_expiry=hand_opt.time_to_expiry, is_call=hand_opt.is_call,
+                risk_free_rate=0.0,  # match hand-rolled BS which uses r=0
             )
             _ = ql_opt.value
             greeks = ql_opt.greeks()
@@ -769,9 +771,11 @@ def run_dense(iterations=10):
         if iter_rng.random() < 0.15:  # 15% chance of a "volatile day"
             intensity *= 2.5
         _jiggle_market(state, iter_rng, intensity=intensity)
-        snapshot_initial_values(traders)
 
         # ── Desk snapshot (every iteration — shows P&L evolution) ──
+        # NOTE: Do NOT call snapshot_initial_values() here.
+        # PnL accumulates from the initial setup so we can track
+        # how the desk value evolves across iterations.
         emit_desk_snapshot(f"desk_i{i}")
 
         # ── MC simulation — all 3 models ──
@@ -809,6 +813,17 @@ def run_dense(iterations=10):
 
         # ── Regenerate signals (prices changed → new signals) ──
         if i % 2 == 0:  # every 2nd iteration
+            # Append current jiggled prices to history so MAs reflect intraday moves
+            ts = datetime.now().isoformat()
+            for ticker in signal_tickers:
+                eq = state["equities"].get(ticker)
+                if eq and eq.value > 0:
+                    mgr.history.append(ticker, [{
+                        "timestamp": ts,
+                        "open": eq.value, "high": eq.value,
+                        "low": eq.value, "close": eq.value,
+                        "volume": 0,
+                    }])
             emit_signals()
 
         # ── Order execution — 4-5 orders per iteration ──

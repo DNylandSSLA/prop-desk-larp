@@ -51,7 +51,7 @@ class HestonProcess:
     fully vectorized over paths.
     """
 
-    def __init__(self, kappa=2.0, theta=0.04, xi=0.3, rho=-0.7, v0=0.04):
+    def __init__(self, kappa=1.5, theta=0.04, xi=0.5, rho=-0.7, v0=0.04):
         """
         Parameters
         ----------
