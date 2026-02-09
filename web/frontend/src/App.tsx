@@ -1,11 +1,11 @@
 import { useEffect } from "react";
-import { useReplay } from "./hooks/useReplay";
+import { useSimulation } from "./hooks/useSimulation";
 import { useSimulationState } from "./hooks/useSimulationState";
 import { Dashboard } from "./components/Dashboard";
 
 export function App() {
   const { state, handleMessage, setConnected, setView } = useSimulationState();
-  const { connected } = useReplay({ onMessage: handleMessage });
+  const { connected } = useSimulation({ onMessage: handleMessage });
 
   useEffect(() => {
     setConnected(connected);
