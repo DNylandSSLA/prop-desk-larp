@@ -3,6 +3,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "30 13 * * 1-5"   # 1:30 PM UTC weekdays (~after US market close)
   workflow_dispatch:
 
 permissions:
@@ -19,6 +21,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch latest market prices
+        run: |
+          pip install yfinance
+          python scripts/fetch-prices.py
       - uses: actions/setup-node@v4
         with:
           node-version: 20

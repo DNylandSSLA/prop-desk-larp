@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { SimulationEngine } from "../engine";
+import { fetchLivePrices } from "../engine/fetch-prices";
 
 interface UseSimulationOptions {
   onMessage: (data: unknown) => void;
@@ -11,21 +12,31 @@ export function useSimulation({ onMessage }: UseSimulationOptions) {
   onMessageRef.current = onMessage;
 
   useEffect(() => {
-    const engine = new SimulationEngine();
-    setConnected(true);
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | undefined;
 
-    // Send first tick immediately
-    const msg = engine.tick();
-    onMessageRef.current(msg);
+    (async () => {
+      // Fetch live prices — never throws, returns partial/empty on failure
+      const overrides = await fetchLivePrices();
+      if (cancelled) return;
 
-    // Then tick every 2 seconds
-    const id = setInterval(() => {
+      const engine = new SimulationEngine(undefined, overrides);
+      setConnected(true);
+
+      // Send first tick immediately
       const msg = engine.tick();
       onMessageRef.current(msg);
-    }, 2000);
+
+      // Then tick every 2 seconds
+      intervalId = setInterval(() => {
+        const msg = engine.tick();
+        onMessageRef.current(msg);
+      }, 2000);
+    })();
 
     return () => {
-      clearInterval(id);
+      cancelled = true;
+      if (intervalId !== undefined) clearInterval(intervalId);
     };
   }, []);
 

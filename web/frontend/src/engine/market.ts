@@ -11,6 +11,7 @@ import {
 } from "./seed-data";
 import type { EquityInst, OptionInst, BondInst, CdsInst, FxInst } from "./instruments";
 import { bsPrice, bondPv, cdsValue } from "./instruments";
+import type { PriceOverrides } from "./fetch-prices";
 
 export class MarketState {
   equities: Map<string, EquityInst> = new Map();
@@ -26,10 +27,10 @@ export class MarketState {
   /** Ticker -> last 30 prices for sparklines */
   priceHistory: Map<string, number[]> = new Map();
 
-  constructor() {
-    // Equities
+  constructor(overrides?: PriceOverrides) {
+    // Equities — use live prices when available, fall back to seeds
     for (const ticker of EQUITY_TICKERS) {
-      const price = SEED_PRICES[ticker] ?? 100;
+      const price = overrides?.prices?.[ticker] ?? SEED_PRICES[ticker] ?? 100;
       this.equities.set(ticker, {
         name: ticker, type: "equity", spotPrice: price, value: price,
       });
@@ -37,20 +38,21 @@ export class MarketState {
     }
 
     // VIX, SOFR, Spread
-    this.vix = SEED_VIX;
-    this.sofr = SEED_SOFR;
+    this.vix = overrides?.vix ?? SEED_VIX;
+    this.sofr = overrides?.sofr ?? SEED_SOFR;
     this.spread = SEED_SPREAD;
 
-    // FX
+    // FX — use live rates when available
     for (const def of FX_SEEDS) {
+      const rate = overrides?.fx?.[def.key] ?? def.rate;
       this.fx.set(def.key, {
-        name: def.pair, type: "fx", pair: def.pair, rate: def.rate, value: def.rate,
+        name: def.pair, type: "fx", pair: def.pair, rate, value: rate,
       });
     }
 
     // Options — compute initial BS price
     for (const def of OPTION_DEFS) {
-      const spot = SEED_PRICES[def.spotTicker] ?? 100;
+      const spot = overrides?.prices?.[def.spotTicker] ?? SEED_PRICES[def.spotTicker] ?? 100;
       const val = bsPrice(spot, def.strike, def.volatility, def.timeToExpiry, def.isCall);
       this.options.set(def.key, {
         name: def.name,

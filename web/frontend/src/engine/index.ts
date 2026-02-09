@@ -7,6 +7,7 @@ import { PRNG } from "./prng";
 import { MarketState } from "./market";
 import { createTraders } from "./traders";
 import type { Trader } from "./traders";
+import type { PriceOverrides } from "./fetch-prices";
 import {
   snapshotPrevState, recordPnl,
   computeAttribution, computeBumpLadder,
@@ -40,9 +41,9 @@ export class SimulationEngine {
   private stressData: Record<string, StressScenario> | null = null;
   private recentOrders: OrderData[] = [];
 
-  constructor(seed?: number) {
+  constructor(seed?: number, overrides?: PriceOverrides) {
     this.rng = new PRNG(seed ?? Date.now());
-    this.market = new MarketState();
+    this.market = new MarketState(overrides);
     this.traders = createTraders(this.market);
     this.startTime = Date.now();
 
