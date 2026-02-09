@@ -4,3 +4,10 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 personal_doNOTputongithub/
+my_portfolio_demo.py
+portfolio.py
+taleb_pdfs/
+someurls.txt
+Bank Python_*
+web/frontend/dist/
+web/frontend/node_modules/

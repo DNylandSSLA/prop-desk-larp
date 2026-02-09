@@ -16,9 +16,9 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: "../static/frontend",
+    outDir: "dist",
     emptyOutDir: true,
     assetsDir: "assets",
   },
-  base: "/static/frontend/",
+  base: "/prop-desk-larp/",
 });
