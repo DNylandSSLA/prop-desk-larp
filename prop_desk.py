@@ -455,166 +455,227 @@ def setup_desk(db):
     mgr.register_ticker("^VIX", vix_md)
 
     # -- Traders with seed positions --
-    # Alice: momentum — rides trends in tech and semis
-    alice_book = Book("Alice")
-    alice_book.add_position(Position(equities["AAPL"], 200))
-    alice_book.add_position(Position(equities["NVDA"], 100))
-    alice_book.add_position(Position(equities["TSLA"], 50))
-    alice_book.add_position(Position(equities["AVGO"], 80))
-    alice_book.add_position(Position(equities["AMD"], 120))
-    alice_book.add_position(Position(equities["CRWD"], 60))
+    # Each trader has a multi-strategy thesis expressed across asset classes.
 
-    # Bob: vol_arb — short options premium, hedged
-    bob_book = Book("Bob")
-    bob_book.add_position(Position(aapl_call, -10))
-    bob_book.add_position(Position(msft_put, -5))
-    bob_book.add_position(Position(equities["AAPL"], 50))   # delta hedge
-    bob_book.add_position(Position(equities["MSFT"], -25))   # delta hedge
+    # Joe: macro rates + duration + real assets
+    # Thesis: rates have peaked, long duration into the cutting cycle.
+    # Express via bonds, gold, rate-sensitive equities, short USD.
+    joe_book = Book("Joe")
+    joe_book.add_position(Position(bond_10y, 400))
+    joe_book.add_position(Position(bond_5y, 300))
+    joe_book.add_position(Position(equities["TLT"], 200))
+    joe_book.add_position(Position(equities["GLD"], 250))
+    joe_book.add_position(Position(eurusd, 40_000))         # short USD
+    joe_book.add_position(Position(usdjpy, -35_000))         # short USD/JPY
+    joe_book.add_position(Position(equities["XOM"], 80))     # real asset kicker
+    joe_book.add_position(Position(equities["CAT"], 60))     # capex cycle play
+    joe_book.add_position(Position(equities["SPY"], -40))    # beta hedge
 
-    # Charlie: stat_arb — mean-reversion pairs across sectors
-    charlie_book = Book("Charlie")
-    charlie_book.add_position(Position(equities["GOOGL"], 100))
-    charlie_book.add_position(Position(equities["AMZN"], -80))
-    charlie_book.add_position(Position(equities["META"], 60))
-    charlie_book.add_position(Position(equities["JPM"], 90))
-    charlie_book.add_position(Position(equities["GS"], -70))
-    charlie_book.add_position(Position(equities["XOM"], 80))
-    charlie_book.add_position(Position(equities["CVX"], -60))
+    # Tracy: credit + plumbing + structured
+    # Thesis: credit spreads are mispriced vs fundamentals, basis trades
+    # in IG/HY, long bank equities for NIM expansion, short vol on credit.
+    tracy_book = Book("Tracy")
+    tracy_book.add_position(Position(cds_ig, 2))
+    tracy_book.add_position(Position(cds_hy, -1))
+    tracy_book.add_position(Position(bond_10y, 200))
+    tracy_book.add_position(Position(equities["LQD"], 180))
+    tracy_book.add_position(Position(equities["HYG"], -80))  # short HY
+    tracy_book.add_position(Position(equities["JPM"], 120))
+    tracy_book.add_position(Position(equities["BAC"], 150))
+    tracy_book.add_position(Position(equities["GS"], 80))
+    tracy_book.add_position(Position(equities["C"], 100))
+    tracy_book.add_position(Position(msft_put, -8))          # sell vol for carry
 
-    # Diana: macro — rates, FX, and broad indices
-    diana_book = Book("Diana")
-    diana_book.add_position(Position(eurusd, 50_000))
-    diana_book.add_position(Position(usdjpy, -30_000))
-    diana_book.add_position(Position(bond_5y, 500))
-    diana_book.add_position(Position(equities["SPY"], 100))
-    diana_book.add_position(Position(equities["GLD"], 200))
-    diana_book.add_position(Position(equities["TLT"], 150))
-    diana_book.add_position(Position(equities["EEM"], 300))
+    # Matt: relative value + pairs + index arb
+    # Thesis: price dislocations revert. Market-neutral, always hedged.
+    # Pairs within sectors, short ETF vs long basket, payment rails arb.
+    matt_book = Book("Matt")
+    matt_book.add_position(Position(equities["GOOGL"], 90))
+    matt_book.add_position(Position(equities["META"], -70))
+    matt_book.add_position(Position(equities["XOM"], 100))
+    matt_book.add_position(Position(equities["CVX"], -80))
+    matt_book.add_position(Position(equities["V"], 55))
+    matt_book.add_position(Position(equities["MA"], -50))
+    matt_book.add_position(Position(equities["HD"], 45))
+    matt_book.add_position(Position(equities["LOW"], -40))
+    matt_book.add_position(Position(equities["SPY"], -120))  # index arb short leg
+    matt_book.add_position(Position(equities["AAPL"], 60))
+    matt_book.add_position(Position(equities["MSFT"], 50))
+    matt_book.add_position(Position(equities["NVDA"], 30))
 
-    # Nero: credit_arb — CDS basis trades, credit carry, HY exposure
+    # Katie: equities flow + sector rotation
+    # Thesis: follow the institutional flows. Currently tech-heavy with
+    # a healthcare rotation starting. Large liquid names only.
+    katie_book = Book("Katie")
+    katie_book.add_position(Position(equities["AAPL"], 180))
+    katie_book.add_position(Position(equities["MSFT"], 120))
+    katie_book.add_position(Position(equities["NVDA"], 80))
+    katie_book.add_position(Position(equities["LLY"], 60))
+    katie_book.add_position(Position(equities["UNH"], 40))
+    katie_book.add_position(Position(equities["JNJ"], 100))
+    katie_book.add_position(Position(equities["COST"], 50))
+    katie_book.add_position(Position(equities["AMZN"], 70))
+    katie_book.add_position(Position(equities["QQQ"], 60))
+
+    # Nero: credit arb + antifragile positioning
+    # Thesis: short the fragile, long the robust. CDS basis, convexity
+    # harvesting. Small positions, big tails.
     nero_book = Book("Nero")
     nero_book.add_position(Position(cds_ig, 1))
-    nero_book.add_position(Position(cds_hy, -1))
-    nero_book.add_position(Position(bond_10y, 200))
-    nero_book.add_position(Position(equities["HYG"], 100))
-    nero_book.add_position(Position(equities["LQD"], 150))
-    nero_book.add_position(Position(equities["BAC"], 200))
+    nero_book.add_position(Position(cds_hy, -2))
+    nero_book.add_position(Position(bond_10y, 150))
+    nero_book.add_position(Position(equities["HYG"], -60))
+    nero_book.add_position(Position(equities["LQD"], 100))
+    nero_book.add_position(Position(nvda_put, 20))           # tail hedge
+    nero_book.add_position(Position(equities["BAC"], 120))
+    nero_book.add_position(Position(equities["GLD"], 80))    # chaos hedge
 
-    # Tony: tech_momentum — heavy conviction longs across the tech stack
+    # Tony: tech conviction + AI secular trend
+    # Thesis: AI capex cycle is a decade-long build. Semis + cloud +
+    # infrastructure. Hedged with broad index puts but stays long.
     tony_book = Book("Tony")
     tony_book.add_position(Position(equities["NVDA"], 150))
-    tony_book.add_position(Position(equities["TSLA"], 80))
-    tony_book.add_position(Position(equities["META"], 120))
+    tony_book.add_position(Position(equities["AVGO"], 80))
+    tony_book.add_position(Position(equities["AMD"], 100))
     tony_book.add_position(Position(equities["MSFT"], 60))
-    tony_book.add_position(Position(equities["AVGO"], 70))
-    tony_book.add_position(Position(equities["AMD"], 90))
-    tony_book.add_position(Position(equities["NFLX"], 40))
+    tony_book.add_position(Position(equities["META"], 90))
     tony_book.add_position(Position(equities["CRM"], 50))
-    tony_book.add_position(Position(equities["NOW"], 30))
+    tony_book.add_position(Position(equities["NOW"], 35))
     tony_book.add_position(Position(equities["PANW"], 45))
+    tony_book.add_position(Position(equities["TSLA"], 40))
+    tony_book.add_position(Position(equities["NFLX"], 30))
+    tony_book.add_position(Position(equities["SPY"], -50))   # beta hedge
 
-    # Vivian: gamma_scalp — long straddles, delta-hedged
-    vivian_book = Book("Vivian")
-    vivian_book.add_position(Position(nvda_call, 20))
-    vivian_book.add_position(Position(nvda_put, 15))
-    vivian_book.add_position(Position(equities["NVDA"], -100))
-    vivian_book.add_position(Position(meta_call, 10))
-    vivian_book.add_position(Position(equities["META"], -40))
+    # Adam: geopolitical macro + policy cycle
+    # Thesis: fiscal dominance is the new regime. EM divergence from DM,
+    # long where policy is credible, short where it isn't.
+    adam_book = Book("Adam")
+    adam_book.add_position(Position(equities["EEM"], 300))
+    adam_book.add_position(Position(equities["EFA"], 200))
+    adam_book.add_position(Position(eurusd, 35_000))
+    adam_book.add_position(Position(gbpusd, -20_000))
+    adam_book.add_position(Position(bond_5y, 250))
+    adam_book.add_position(Position(equities["GLD"], 150))
+    adam_book.add_position(Position(equities["XOM"], 60))    # commodity hedge
+    adam_book.add_position(Position(equities["LMT"], 40))    # defense spend
+    adam_book.add_position(Position(equities["SPY"], 80))
 
-    # Marcus: pairs_trade — long/short equity pairs across sectors
-    marcus_book = Book("Marcus")
-    marcus_book.add_position(Position(equities["GOOGL"], 80))
-    marcus_book.add_position(Position(equities["MSFT"], -60))
-    marcus_book.add_position(Position(equities["AAPL"], 70))
-    marcus_book.add_position(Position(equities["AMZN"], -50))
-    marcus_book.add_position(Position(equities["XOM"], 100))
-    marcus_book.add_position(Position(equities["CVX"], -80))
-    marcus_book.add_position(Position(equities["HD"], 40))
-    marcus_book.add_position(Position(equities["LOW"], -35))
-    marcus_book.add_position(Position(equities["V"], 50))
-    marcus_book.add_position(Position(equities["MA"], -45))
+    # Charlie: quant vol + gamma scalping
+    # Thesis: realized vol is persistently above implied in mega-cap tech.
+    # Long straddles, delta-hedged, harvesting the spread.
+    cardiff_book = Book("Charlie")
+    cardiff_book.add_position(Position(nvda_call, 20))
+    cardiff_book.add_position(Position(nvda_put, 18))
+    cardiff_book.add_position(Position(equities["NVDA"], -110))  # delta hedge
+    cardiff_book.add_position(Position(meta_call, 12))
+    cardiff_book.add_position(Position(equities["META"], -45))   # delta hedge
+    cardiff_book.add_position(Position(aapl_call, -8))           # sell wing
+    cardiff_book.add_position(Position(tsla_call, 10))
+    cardiff_book.add_position(Position(equities["TSLA"], -30))   # delta hedge
 
-    # Elena: carry_trade — FX carry + yield curve + EM
-    elena_book = Book("Elena")
-    elena_book.add_position(Position(gbpusd, 30_000))
-    elena_book.add_position(Position(usdjpy, 40_000))
-    elena_book.add_position(Position(audusd, 25_000))
-    elena_book.add_position(Position(bond_5y, 300))
-    elena_book.add_position(Position(bond_10y, 200))
-    elena_book.add_position(Position(equities["EEM"], 200))
-    elena_book.add_position(Position(equities["EFA"], 150))
+    # Izzy: commodities + inflation + real assets
+    # Thesis: structural undersupply in energy, metals repricing higher.
+    # Long the commodity complex, short bonds as inflation hedge.
+    izzy_book = Book("Izzy")
+    izzy_book.add_position(Position(equities["XOM"], 120))
+    izzy_book.add_position(Position(equities["CVX"], 90))
+    izzy_book.add_position(Position(equities["COP"], 80))
+    izzy_book.add_position(Position(equities["SLB"], 100))
+    izzy_book.add_position(Position(equities["FCX"], 150))   # copper
+    izzy_book.add_position(Position(equities["NEM"], 100))   # gold miner
+    izzy_book.add_position(Position(equities["GLD"], 120))
+    izzy_book.add_position(Position(audusd, 30_000))         # commodity FX
+    izzy_book.add_position(Position(usdcad, -25_000))        # oil-linked
+    izzy_book.add_position(Position(bond_10y, -100))         # short duration
 
-    # Raj: contrarian — short momentum leaders, long beaten-down value
-    raj_book = Book("Raj")
-    raj_book.add_position(Position(equities["TSLA"], -40))
-    raj_book.add_position(Position(equities["NVDA"], -30))
-    raj_book.add_position(Position(equities["COIN"], -50))
-    raj_book.add_position(Position(equities["BA"], 80))
-    raj_book.add_position(Position(equities["DIS"], 100))
-    raj_book.add_position(Position(equities["PFE"], 200))
-    raj_book.add_position(Position(equities["INTC"], 150))
-    raj_book.add_position(Position(equities["T"], 300))
+    # Claudia: defensive macro + recession preparation
+    # Thesis: labor market is cooling, consumer is stretched. Rotate to
+    # quality defensives, long duration, short cyclicals.
+    claudia_book = Book("Claudia")
+    claudia_book.add_position(Position(equities["JNJ"], 150))
+    claudia_book.add_position(Position(equities["PFE"], 120))
+    claudia_book.add_position(Position(equities["KO"], 100))
+    claudia_book.add_position(Position(equities["PEP"], 80))
+    claudia_book.add_position(Position(equities["WMT"], 90))
+    claudia_book.add_position(Position(equities["COST"], 60))
+    claudia_book.add_position(Position(bond_10y, 300))       # long duration
+    claudia_book.add_position(Position(equities["TSLA"], -30))  # short cyclical
+    claudia_book.add_position(Position(equities["COIN"], -40))  # short speculative
+    claudia_book.add_position(Position(equities["RIVN"], -50))  # short unprofitable
 
-    # Sophia: index_arb — short ETFs vs long component baskets
-    sophia_book = Book("Sophia")
-    sophia_book.add_position(Position(equities["SPY"], -200))
-    sophia_book.add_position(Position(equities["QQQ"], -100))
-    sophia_book.add_position(Position(equities["AAPL"], 150))
-    sophia_book.add_position(Position(equities["MSFT"], 80))
-    sophia_book.add_position(Position(equities["NVDA"], 50))
-    sophia_book.add_position(Position(equities["GOOGL"], 40))
-    sophia_book.add_position(Position(equities["AMZN"], 35))
-    sophia_book.add_position(Position(equities["META"], 25))
-    sophia_book.add_position(Position(equities["AVGO"], 30))
+    # Noah: growth momentum + fintech + innovation
+    # Thesis: disruption premium is real, fintech and platform cos will
+    # compound. High-beta, high-conviction, accepts the drawdowns.
+    noah_book = Book("Noah")
+    noah_book.add_position(Position(equities["COIN"], 250))
+    noah_book.add_position(Position(equities["PLTR"], 400))
+    noah_book.add_position(Position(equities["SOFI"], 500))
+    noah_book.add_position(Position(equities["HOOD"], 300))
+    noah_book.add_position(Position(equities["AFRM"], 200))
+    noah_book.add_position(Position(equities["SHOP"], 60))
+    noah_book.add_position(Position(equities["DDOG"], 80))
+    noah_book.add_position(Position(equities["NET"], 100))
+    noah_book.add_position(Position(equities["SPY"], -60))   # beta hedge
 
-    # Kenji: vol_spread — long/short options across strikes and underlyings
-    kenji_book = Book("Kenji")
-    kenji_book.add_position(Position(aapl_call, 15))
-    kenji_book.add_position(Position(msft_put, 10))
-    kenji_book.add_position(Position(tsla_call, 8))
-    kenji_book.add_position(Position(nvda_put, -12))
-    kenji_book.add_position(Position(meta_call, 5))
+    # Skanda: rates + fiscal + curve trades
+    # Thesis: curve will steepen as front-end gets cut and term premium
+    # returns to long end. Express via 2s10s steepener + rate vol.
+    skanda_book = Book("Skanda")
+    skanda_book.add_position(Position(bond_2y, 500))         # long front-end
+    skanda_book.add_position(Position(bond_10y, -200))       # short long-end
+    skanda_book.add_position(Position(bond_5y, 150))         # belly
+    skanda_book.add_position(Position(equities["TLT"], -80)) # short duration ETF
+    skanda_book.add_position(Position(equities["JPM"], 70))  # bank NIM play
+    skanda_book.add_position(Position(equities["SCHW"], 60))
+    skanda_book.add_position(Position(equities["BLK"], 40))
+    skanda_book.add_position(Position(msft_put, 10))         # tail hedge
 
-    # Zara: event_driven — concentrated bets on catalysts + crypto exposure
-    zara_book = Book("Zara")
-    zara_book.add_position(Position(equities["TSLA"], 200))
-    zara_book.add_position(Position(equities["META"], 150))
-    zara_book.add_position(Position(equities["COIN"], 300))
-    zara_book.add_position(Position(equities["PLTR"], 500))
-    zara_book.add_position(Position(equities["RIVN"], 400))
-    zara_book.add_position(Position(equities["SOFI"], 600))
-    zara_book.add_position(Position(equities["SPY"], -50))
+    # Torsten: cross-asset tactical
+    # Thesis: everything is a trade. Rotate across equities, credit, FX,
+    # and rates based on relative value signals. Currently risk-on tilt.
+    torsten_book = Book("Torsten")
+    torsten_book.add_position(Position(equities["AAPL"], 70))
+    torsten_book.add_position(Position(equities["GOOGL"], 50))
+    torsten_book.add_position(Position(equities["JPM"], 60))
+    torsten_book.add_position(Position(eurusd, 25_000))
+    torsten_book.add_position(Position(usdjpy, -20_000))
+    torsten_book.add_position(Position(bond_5y, 100))
+    torsten_book.add_position(Position(cds_ig, 1))
+    torsten_book.add_position(Position(equities["GLD"], 50))
+    torsten_book.add_position(Position(equities["EEM"], 80))
+    torsten_book.add_position(Position(equities["QQQ"], 40))
+    torsten_book.add_position(Position(nvda_call, 5))
 
-    # Oscar: multi_asset — diversified across every asset class
-    oscar_book = Book("Oscar")
-    oscar_book.add_position(Position(equities["AAPL"], 50))
-    oscar_book.add_position(Position(equities["JPM"], 60))
-    oscar_book.add_position(Position(equities["JNJ"], 40))
-    oscar_book.add_position(Position(equities["XOM"], 50))
-    oscar_book.add_position(Position(equities["CAT"], 30))
-    oscar_book.add_position(Position(eurusd, 20_000))
-    oscar_book.add_position(Position(usdchf, 15_000))
-    oscar_book.add_position(Position(bond_5y, 100))
-    oscar_book.add_position(Position(bond_2y, 200))
-    oscar_book.add_position(Position(equities["GLD"], 100))
-    oscar_book.add_position(Position(equities["SPY"], 80))
-    oscar_book.add_position(Position(equities["QQQ"], 60))
+    # Robin: FX + EM + global equities
+    # Thesis: dollar is overvalued, EM equities are cheap to DM on every
+    # metric. Heavy FX book, carry trades, EM equity overweight.
+    robin_book = Book("Robin")
+    robin_book.add_position(Position(eurusd, 50_000))
+    robin_book.add_position(Position(gbpusd, 35_000))
+    robin_book.add_position(Position(audusd, 30_000))
+    robin_book.add_position(Position(usdjpy, -40_000))
+    robin_book.add_position(Position(usdcad, -20_000))
+    robin_book.add_position(Position(equities["EEM"], 250))
+    robin_book.add_position(Position(equities["EFA"], 180))
+    robin_book.add_position(Position(equities["MELI"], 40))  # LatAm
+    robin_book.add_position(Position(equities["NU"], 200))   # LatAm fintech
+    robin_book.add_position(Position(equities["SE"], 80))    # Asia platform
 
     traders = [
-        Trader("Alice", "momentum", alice_book),
-        Trader("Bob", "vol_arb", bob_book),
-        Trader("Charlie", "stat_arb", charlie_book),
-        Trader("Diana", "macro", diana_book),
-        Trader("Nero", "credit_arb", nero_book),
-        Trader("Tony", "tech_momentum", tony_book),
-        Trader("Vivian", "gamma_scalp", vivian_book),
-        Trader("Marcus", "pairs_trade", marcus_book),
-        Trader("Elena", "carry_trade", elena_book),
-        Trader("Raj", "contrarian", raj_book),
-        Trader("Sophia", "index_arb", sophia_book),
-        Trader("Kenji", "vol_spread", kenji_book),
-        Trader("Zara", "event_driven", zara_book),
-        Trader("Oscar", "multi_asset", oscar_book),
+        Trader("Joe", "macro rates + duration", joe_book),
+        Trader("Tracy", "credit + plumbing", tracy_book),
+        Trader("Matt", "relative value", matt_book),
+        Trader("Katie", "equities flow", katie_book),
+        Trader("Nero", "credit arb", nero_book),
+        Trader("Tony", "tech conviction", tony_book),
+        Trader("Adam", "geopolitical macro", adam_book),
+        Trader("Charlie", "quant vol", cardiff_book),
+        Trader("Izzy", "commodities + inflation", izzy_book),
+        Trader("Claudia", "defensive macro", claudia_book),
+        Trader("Noah", "growth momentum", noah_book),
+        Trader("Skanda", "rates + curve", skanda_book),
+        Trader("Torsten", "cross-asset tactical", torsten_book),
+        Trader("Robin", "FX + EM", robin_book),
     ]
 
     # Store trader profiles in Barbara

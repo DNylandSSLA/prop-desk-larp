@@ -332,11 +332,11 @@ def _run_order_scene(db, state):
     tickers_to_trade = random.sample(EQUITY_TICKERS[:30], 5)
 
     trader_orders = [
-        ("Alice", tickers_to_trade[0], "BUY", 50),
-        ("Tony",  tickers_to_trade[1], "BUY", 75),
-        ("Nero",  tickers_to_trade[2], "SELL", 40),
-        ("Zara",  tickers_to_trade[3], "BUY", 120),
-        ("Diana", tickers_to_trade[4], "BUY", 100),
+        ("Katie",   tickers_to_trade[0], "BUY", 50),
+        ("Tony",    tickers_to_trade[1], "BUY", 75),
+        ("Nero",    tickers_to_trade[2], "SELL", 40),
+        ("Noah",    tickers_to_trade[3], "BUY", 120),
+        ("Joe",     tickers_to_trade[4], "BUY", 100),
     ]
 
     for trader_name, sym, side, qty in trader_orders:
