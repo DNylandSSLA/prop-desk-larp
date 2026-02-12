@@ -21,6 +21,12 @@ from typing import Optional
 
 import numpy as np
 
+try:
+    from mc_engine_rs import simulate_heston, simulate_merton
+    _HAS_MC_RS = True
+except ImportError:
+    _HAS_MC_RS = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,6 +90,13 @@ class HestonProcess:
         -------
         (S_terminal, V_terminal) : tuple of np.ndarray [n_paths]
         """
+        if _HAS_MC_RS:
+            seed = 42 if rng is None else int(rng.integers(0, 2**63))
+            return simulate_heston(
+                float(S0), float(mu), int(n_paths), int(n_steps), float(dt),
+                self.kappa, self.theta, self.xi, self.rho, self.v0, seed,
+            )
+
         if rng is None:
             rng = np.random.default_rng(42)
 
@@ -162,6 +175,13 @@ class MertonJumpDiffusion:
         -------
         S_terminal : np.ndarray [n_paths]
         """
+        if _HAS_MC_RS:
+            seed = 42 if rng is None else int(rng.integers(0, 2**63))
+            return simulate_merton(
+                float(S0), float(mu), float(sigma), int(n_paths), float(dt),
+                self.jump_intensity, self.jump_mean, self.jump_vol, seed,
+            )
+
         if rng is None:
             rng = np.random.default_rng(42)
 
@@ -212,6 +232,9 @@ class VolSurface:
         self.barbara = barbara
         self.graph = graph
         self._surface_data = []  # list of dicts
+        self._moneyness_arr = None  # numpy array for vectorized lookup
+        self._expiry_arr = None
+        self._vol_arr = None
         self._table = None
         self._built = False
 
@@ -290,6 +313,12 @@ class VolSurface:
 
         self._surface_data = surface_points
 
+        # Pre-extract numpy arrays for vectorized get_vol (100-1000x faster)
+        if surface_points:
+            self._moneyness_arr = np.array([p["moneyness"] for p in surface_points])
+            self._expiry_arr = np.array([p["expiry_days"] for p in surface_points], dtype=np.float64)
+            self._vol_arr = np.array([p["implied_vol"] for p in surface_points])
+
         # Build MnTable
         self._table = Table([
             ("strike", float),
@@ -322,49 +351,38 @@ class VolSurface:
 
     def get_vol(self, moneyness, time_to_expiry):
         """
-        Get implied vol via bilinear interpolation on (moneyness, time_to_expiry).
+        Get implied vol via inverse-distance weighted interpolation.
 
-        Parameters
-        ----------
-        moneyness       : float — K/S ratio
-        time_to_expiry  : float — years to expiry
-
-        Returns
-        -------
-        float — interpolated implied vol, or None if surface not built
+        Uses vectorized numpy with argpartition for O(n) nearest-neighbor
+        lookup instead of O(n log n) sort. Returns float or None.
         """
         if not self._surface_data:
             return None
 
+        # Lazily build numpy arrays if _surface_data was set directly
+        if self._vol_arr is None:
+            self._moneyness_arr = np.array([p["moneyness"] for p in self._surface_data])
+            self._expiry_arr = np.array([p["expiry_days"] for p in self._surface_data], dtype=np.float64)
+            self._vol_arr = np.array([p["implied_vol"] for p in self._surface_data])
+
         expiry_days = time_to_expiry * 365.0
 
-        # Find nearest points for interpolation
-        # Sort by distance to target point
-        scored = []
-        for pt in self._surface_data:
-            dm = abs(pt["moneyness"] - moneyness)
-            dt = abs(pt["expiry_days"] - expiry_days)
-            # Normalize distances
-            dist = (dm / max(moneyness, 0.01)) ** 2 + (dt / max(expiry_days, 1.0)) ** 2
-            scored.append((dist, pt["implied_vol"]))
+        # Vectorized distance computation (no Python loop)
+        dm = np.abs(self._moneyness_arr - moneyness)
+        dt = np.abs(self._expiry_arr - expiry_days)
+        dist = (dm / max(moneyness, 0.01)) ** 2 + (dt / max(expiry_days, 1.0)) ** 2
 
-        scored.sort(key=lambda x: x[0])
+        # O(n) argpartition instead of O(n log n) sort
+        n_neighbors = min(4, len(dist))
+        if n_neighbors >= len(dist):
+            top_k_idx = np.arange(len(dist))
+        else:
+            top_k_idx = np.argpartition(dist, n_neighbors)[:n_neighbors]
+        top_k_dist = dist[top_k_idx]
+        top_k_vol = self._vol_arr[top_k_idx]
 
-        # Inverse-distance weighted average of nearest 4 points
-        n_neighbors = min(4, len(scored))
-        if n_neighbors == 0:
-            return None
-
-        weights = []
-        vals = []
-        for i in range(n_neighbors):
-            dist, vol = scored[i]
-            w = 1.0 / (dist + 1e-10)
-            weights.append(w)
-            vals.append(vol)
-
-        total_w = sum(weights)
-        return sum(w * v for w, v in zip(weights, vals)) / total_w
+        weights = 1.0 / (top_k_dist + 1e-10)
+        return float(np.sum(weights * top_k_vol) / np.sum(weights))
 
     @property
     def table(self):

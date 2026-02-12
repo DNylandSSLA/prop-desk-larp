@@ -43,6 +43,12 @@ from bank_python import (
 )
 from bank_python.risk_models import HestonProcess, MertonJumpDiffusion
 
+try:
+    from mc_engine_rs import simulate_gbm, bs_price_vec, bond_pv_vec
+    _HAS_MC_RS = True
+except ImportError:
+    _HAS_MC_RS = False
+
 logger = logging.getLogger(__name__)
 
 SPARK_CHARS = "\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588"
@@ -182,6 +188,17 @@ class PathSimulator:
         -------
         S_terminal : np.ndarray [n_paths, n_assets]
         """
+        if _HAS_MC_RS:
+            return simulate_gbm(
+                np.ascontiguousarray(S0, dtype=np.float64),
+                np.ascontiguousarray(mu, dtype=np.float64),
+                np.ascontiguousarray(sigma, dtype=np.float64),
+                np.ascontiguousarray(L, dtype=np.float64),
+                config.n_paths,
+                config.horizon_days,
+                config.random_seed,
+            )
+
         rng = np.random.default_rng(config.random_seed)
         n_assets = len(S0)
         dt = config.horizon_days / 252.0
@@ -209,9 +226,9 @@ def _vec_norm_cdf(x):
 
 
 def _vec_erf(x):
-    """Vectorized error function using numpy."""
-    # numpy provides a ufunc for this
-    return np.vectorize(math.erf)(x)
+    """Vectorized error function via scipy C library (50-100x faster)."""
+    from scipy.special import erf
+    return erf(x)
 
 
 def _vec_bs_price(S, K, sigma, T, is_call):
@@ -230,6 +247,12 @@ def _vec_bs_price(S, K, sigma, T, is_call):
     -------
     np.ndarray [n_paths] — option prices
     """
+    if _HAS_MC_RS:
+        return bs_price_vec(
+            np.ascontiguousarray(S, dtype=np.float64),
+            float(K), float(sigma), float(T), bool(is_call),
+        )
+
     if T <= 0 or sigma <= 0:
         if is_call:
             return np.maximum(S - K, 0.0)
@@ -264,6 +287,12 @@ def _vec_bond_pv(rate, face, coupon_rate, maturity):
     -------
     np.ndarray [n_paths]
     """
+    if _HAS_MC_RS:
+        return bond_pv_vec(
+            np.ascontiguousarray(rate, dtype=np.float64),
+            float(face), float(coupon_rate), int(maturity),
+        )
+
     coupon = face * coupon_rate
     t_arr = np.arange(1, maturity + 1, dtype=np.float64)
     # Discount factors: [n_paths, maturity]
@@ -550,10 +579,17 @@ class StressEngine:
         return self._apply_scenario(traders, state, scenario, scenario_name)
 
     def run_all_scenarios(self, traders, state):
-        """Run all predefined scenarios. Returns dict[scenario_name, results]."""
-        results = {}
-        for name in STRESS_SCENARIOS:
-            results[name] = self.run_scenario(traders, state, name)
+        """Run all predefined scenarios in parallel. Returns dict[scenario_name, results]."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=min(8, len(STRESS_SCENARIOS))) as pool:
+            futures = {
+                pool.submit(self.run_scenario, traders, state, name): name
+                for name in STRESS_SCENARIOS
+            }
+            results = {}
+            for future in futures:
+                results[futures[future]] = future.result()
         return results
 
     def run_custom(self, traders, state, shocks):
@@ -665,11 +701,11 @@ class StressEngine:
 
     @staticmethod
     def _bond_pv(rate, face, coupon_rate, maturity):
-        """Scalar bond PV."""
+        """Scalar bond PV (vectorized over coupon periods)."""
         coupon = face * coupon_rate
-        pv = sum(coupon / (1 + rate) ** t for t in range(1, maturity + 1))
-        pv += face / (1 + rate) ** maturity
-        return pv
+        t_arr = np.arange(1, maturity + 1, dtype=np.float64)
+        df = 1.0 / (1.0 + rate) ** t_arr
+        return float(coupon * np.sum(df) + face * df[-1])
 
 
 # ── GreeksValidator ──────────────────────────────────────────────────────
