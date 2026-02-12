@@ -155,11 +155,8 @@ class CorrelationFragilityAnalyzer:
         corr = Sigma / stds_outer
 
         # Perturb off-diagonal
-        perturbed_corr = corr.copy()
-        for i in range(n):
-            for j in range(n):
-                if i != j:
-                    perturbed_corr[i, j] = max(-0.99, min(0.99, corr[i, j] + delta))
+        perturbed_corr = np.clip(corr + delta, -0.99, 0.99)
+        np.fill_diagonal(perturbed_corr, 1.0)
 
         # Project to nearest PSD via eigenvalue clipping
         perturbed_corr = self._project_psd(perturbed_corr)

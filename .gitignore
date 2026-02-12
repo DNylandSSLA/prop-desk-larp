@@ -11,3 +11,4 @@ someurls.txt
 Bank Python_*
 web/frontend/dist/
 web/frontend/node_modules/
+mc_engine_rs/target/

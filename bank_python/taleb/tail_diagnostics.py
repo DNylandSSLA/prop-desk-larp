@@ -66,11 +66,9 @@ class TailDiagnostics:
         if threshold <= 0:
             return (float("inf"), float("inf"))
 
-        log_sum = 0.0
-        for i in range(k):
-            if x[i] <= 0:
-                continue
-            log_sum += math.log(x[i] / threshold)
+        top_k = x[:k]
+        positive = top_k[top_k > 0]
+        log_sum = float(np.sum(np.log(positive / threshold)))
 
         if log_sum <= 0:
             return (float("inf"), float("inf"))

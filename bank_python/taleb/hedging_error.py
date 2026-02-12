@@ -161,9 +161,7 @@ class HedgingErrorSimulator:
             # V = sum of df independent standard normals squared ~ chi2(df)
             Z = rng.standard_normal((n_paths, n_steps))
             # Generate chi-squared via sum of squared normals
-            chi2_samples = np.zeros((n_paths, n_steps))
-            for _ in range(df):
-                chi2_samples += rng.standard_normal((n_paths, n_steps)) ** 2
+            chi2_samples = rng.chisquare(df, size=(n_paths, n_steps))
             V = chi2_samples / df
             T_samples = Z / np.sqrt(np.maximum(V, 1e-10))
             # Scale to match vol * sqrt(dt), adjust for T variance = df/(df-2)
@@ -219,12 +217,6 @@ class HedgingErrorSimulator:
 
 
 def _erf_vec(x):
-    """Vectorized error function using numpy."""
-    # numpy doesn't have erf, but we can use the approximation
-    # or iterate with math.erf
-    result = np.empty_like(x, dtype=np.float64)
-    flat = x.ravel()
-    out = result.ravel()
-    for i in range(len(flat)):
-        out[i] = math.erf(flat[i])
-    return result
+    """Vectorized error function via scipy C library (50-100x faster)."""
+    from scipy.special import erf
+    return erf(x)
